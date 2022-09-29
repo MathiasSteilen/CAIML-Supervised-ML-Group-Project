@@ -1,0 +1,12 @@
+magrittr
+dplyr
+ggplot2
+GGally
+data.table
+stargazer
+gridExtra
+pander
+plm
+janitor
+carData
+car

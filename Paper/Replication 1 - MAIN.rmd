@@ -1,0 +1,122 @@
+---
+title: ""
+output:
+  pdf_document:
+    number_sections: TRUE
+    # includes:  
+    #   in_header: figure_in_text.tex
+  csl: apa.csl
+fontsize: 11pt
+header-includes:
+  - \usepackage{float}
+  - \usepackage{paralist}
+  - \usepackage{setspace}
+  - \usepackage{fancyhdr}
+  - \usepackage{lastpage}
+  - \usepackage{dcolumn}
+  # - \usepackage{natbib}\bibliographystyle{apacite}
+  - \usepackage[nottoc, numbib, notlof, notlot]{tocbibind}
+  - \usepackage[natbibapa]{apacite}
+  - \usepackage{lscape}
+  - \newcommand{\blandscape}{\begin{landscape}}
+  - \newcommand{\elandscape}{\end{landscape}}
+bibliography: bibliography.bib
+---
+
+\pagenumbering{gobble}
+
+<!-- Title page -->
+<!-- Title page -->
+<!-- Title page -->
+
+\begin{centering}
+
+\vspace{3cm}
+
+```{r, echo=F, out.width="35%"}
+knitr::include_graphics("Graphics/2000px-Universitaet-st-gallen.svg.png")
+```
+
+\vspace{3cm}
+
+\Large
+{\bf University of St. Gallen}
+
+\small
+{\bf School of Economics, Law, Social Sciences, International Relations and Computer Science}
+
+\vspace{1cm}
+
+\Large
+
+\doublespacing
+{\bf TBD: Modelling this and that}
+
+\vspace{1 cm}
+
+\normalsize
+\singlespacing
+By
+
+\vspace{0.5 cm}
+
+\Large
+
+{\bf Tobias Jucker, Jingxuan Song, Mathias Steilen, Dan Wang}
+
+\vspace{1.5 cm}
+
+\normalsize
+
+{\bf Matriculation N°:} / / 19-608-512 /
+
+{\bf Course:} Concepts, Applications, and Implications in Machine Learning and Artificial Intelligence
+
+{\bf Lecturer:} Prof. Dr. Clemens Stachl
+
+\vspace{1.5 cm}
+
+`r format(Sys.time(), "%d.%m.%Y")`
+
+\end{centering}
+
+\spacing{1.5}
+
+<!-- Table of Contents -->
+<!-- Table of Contents -->
+<!-- Table of Contents -->
+
+\pagenumbering{roman}
+\newpage
+
+\centering
+\newpage
+\raggedright
+\tableofcontents
+
+<!-- List of figures and tables -->
+<!-- List of figures and tables -->
+<!-- List of figures and tables -->
+
+\newpage
+\listoffigures
+\listoftables
+
+<!-- Content -->
+<!-- Content -->
+<!-- Content -->
+
+\newpage
+\pagestyle{fancy}
+\setlength{\headheight}{13.6pt}
+\pagenumbering{arabic}
+
+```{r main body, child = 'Main Body.rmd'}
+```
+
+\newpage
+
+```{r biblio, child = 'bibliography.rmd'}
+```
+
+
