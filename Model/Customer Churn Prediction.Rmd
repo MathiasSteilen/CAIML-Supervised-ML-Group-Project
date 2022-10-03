@@ -616,37 +616,37 @@ gb_grid <-
     sample_size = sample_prop(),
     finalize(mtry(), dt_train),
     learn_rate(),
-    size = 3
+    size = 100
   )
 
 knn_grid <- 
   grid_regular(neighbors(), 
-               levels = 3)
+               levels = 10)
 
 rf_grid <- 
   grid_latin_hypercube(
     finalize(mtry(), dt_train),
     min_n(),
     trees(),
-    size = 3
+    size = 50
   )
 
 log_grid <-
   grid_latin_hypercube(
     mixture(),
     penalty(),
-    size = 3
+    size = 100
   )
 
 svm_lin_grid <- 
   grid_regular(cost(),
-               levels = 3)
+               levels = 30)
 
 svm_nonlin_grid <- 
   grid_latin_hypercube(
     cost(),
     rbf_sigma(),
-    size = 3
+    size = 30
   )
 ```
 
@@ -660,7 +660,7 @@ eval_metrics <- metric_set(roc_auc, accuracy, sensitivity, specificity,
 ```
 
 
-```{r class.source = 'fold-show', cache=TRUE}
+```{r class.source = 'fold-show', cache=TRUE, eval=FALSE}
 # Gradient Boosting
 start_time = Sys.time()
 
@@ -806,6 +806,24 @@ end_time = Sys.time()
 end_time - start_time
 ```
 
+```{r, eval=FALSE}
+saveRDS(gb_tune, "gb_tune.rds")
+saveRDS(knn_tune, "knn_tune.rds")
+saveRDS(rf_tune, "rf_tune.rds")
+saveRDS(log_tune, "log_tune.rds")
+saveRDS(svm_lin_tune, "svm_lin_tune.rds")
+saveRDS(svm_nonlin_tune, "svm_nonlin_tune.rds")
+```
+
+```{r}
+readRDS("gb_tune.rds")
+readRDS("knn_tune.rds")
+readRDS("rf_tune.rds")
+readRDS("log_tune.rds")
+readRDS("svm_lin_tune.rds")
+readRDS("svm_nonlin_tune.rds")
+```
+
 Better way to numerically compare the models here? For instance like the chart below
 
 ```{r, fig.width=8, fig.height=4.95, dpi=300, dev="png", warning=FALSE}
@@ -829,10 +847,10 @@ bind_rows(
     collect_metrics() %>%
     mutate(model = "SVM_nonlin")
 ) %>% 
-  ggplot(aes(x = model %>% reorder_within(by = -mean, within = .metric), 
-             y = mean, 
-             colour = .config)) +
-  geom_jitter(show.legend = F, width = 0.2, alpha = 0.4) +
+  ggplot(aes(x = model %>% 
+               reorder_within(by = mean, within = .metric, fun = median), 
+             y = mean)) +
+  geom_jitter(width = 0.2, alpha = 0.2, colour = "midnightblue") +
   facet_wrap(~ .metric, scales = "free") +
   labs(title = "Hyperparameter Tuning Results",
        subtitle = "Colours indicate different parameter combinations",
@@ -841,16 +859,16 @@ bind_rows(
   scale_y_continuous(labels = scales::percent_format(),
                      limits = c(0,1)) +
   scale_x_reordered() +
-  theme_light() +
+  coord_flip() +
+  theme_bw() +
   theme(plot.title = element_text(face = "bold", size = 12),
-        plot.subtitle = element_text(face = "italic", colour = "grey50"))
+        plot.subtitle = element_text(face = "italic", colour = "grey50"),
+        legend.position = "none")
 ```
 
 Fitting the final models:
 
-**Which model to use here? Is specificity the most important one? Create profit curves for each model with different metrics? Create profit curves for each metric with different models?**
-
-```{r}
+```{r, eval=FALSE}
 gb_final_fit <- gb_wflow %>%
   finalize_workflow(select_best(gb_tune, metric = "roc_auc")) %>% 
   last_fit(dt_split)
@@ -875,6 +893,16 @@ svm_nonlin_final_fit <- svm_nonlin_wflow %>%
   finalize_workflow(select_best(svm_nonlin_tune, metric = "roc_auc")) %>% 
   last_fit(dt_split)
 ```
+
+```{r}
+saveRDS(gb_final_fit, "gb_final_fit.rds")
+saveRDS(knn_final_fit, "knn_final_fit.rds")
+saveRDS(rf_final_fit, "rf_final_fit.rds")
+saveRDS(log_final_fit, "log_final_fit.rds")
+saveRDS(svm_lin_final_fit, "svm_lin_final_fit.rds")
+saveRDS(svm_nonlin_final_fit, "svm_nonlin_final_fit.rds")
+```
+
 
 ```{r, fig.width=8, fig.height=4.95, dpi=300, dev="png", warning=FALSE}
 gb_final_fit %>%
@@ -1237,6 +1265,49 @@ tibble(
   trained = list(gb_final_fit, knn_final_fit, rf_final_fit, log_final_fit,
                  svm_lin_final_fit, svm_nonlin_final_fit),
   description = c("GB", "KNN", "RF", "LOG", "SVM_lin", "SVM_nonlin")
+) %>% 
+  mutate(curve = map(trained, ~ profit_curve(.x, seq(0, 1, 0.025)))) %>% 
+  unnest(curve) %>% 
+  ggplot(aes(threshold, profit_with_model)) +
+  geom_line(colour = "grey50", size = 0.4) + 
+  geom_point(aes(colour = sign, group = 1)) +
+  facet_wrap(~ description, scales = "free_x") +
+  labs(colour = "Value-add of the \nmodel compared \nto using no model:",
+       y = "Profit",
+       x = "Classification Threshold", 
+       title = "Forecasted Annual Profit Depending On Classification Threshold",
+       subtitle = "") +
+  scale_y_continuous(labels = dollar_format()) +
+  scale_x_continuous(labels = percent_format(), 
+                     breaks = seq(0, 1, 0.1)) +
+  scale_colour_manual(values = c("firebrick", "dodgerblue")) +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(face = "italic", colour = "grey50",
+                                     size = 12))
+```
+
+- ROC AUC should be the best metric:
+
+```{r}
+tibble(
+  trained = list(log_wflow %>%
+                   finalize_workflow(select_best(log_tune,
+                                                 metric = "accuracy")) %>% 
+                   last_fit(dt_split),
+                 log_wflow %>%
+                   finalize_workflow(select_best(log_tune,
+                                                 metric = "roc_auc")) %>% 
+                   last_fit(dt_split),
+                 log_wflow %>%
+                   finalize_workflow(select_best(log_tune,
+                                                 metric = "sensitivity")) %>% 
+                   last_fit(dt_split),
+                 log_wflow %>%
+                   finalize_workflow(select_best(log_tune,
+                                                 metric = "specificity")) %>% 
+                   last_fit(dt_split)),
+  description = c("accuracy", "roc_auc", "sensitivity", "specificity")
 ) %>% 
   mutate(curve = map(trained, ~ profit_curve(.x, seq(0, 1, 0.025)))) %>% 
   unnest(curve) %>% 
