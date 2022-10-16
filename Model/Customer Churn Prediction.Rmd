@@ -816,12 +816,12 @@ saveRDS(svm_nonlin_tune, "svm_nonlin_tune.rds")
 ```
 
 ```{r}
-readRDS("gb_tune.rds")
-readRDS("knn_tune.rds")
-readRDS("rf_tune.rds")
-readRDS("log_tune.rds")
-readRDS("svm_lin_tune.rds")
-readRDS("svm_nonlin_tune.rds")
+gb_tune <- readRDS("gb_tune.rds")
+knn_tune <- readRDS("knn_tune.rds")
+rf_tune <- readRDS("rf_tune.rds")
+log_tune <- readRDS("log_tune.rds")
+svm_lin_tune <- readRDS("svm_lin_tune.rds")
+svm_nonlin_tune <- readRDS("svm_nonlin_tune.rds")
 ```
 
 Better way to numerically compare the models here? For instance like the chart below
@@ -894,13 +894,22 @@ svm_nonlin_final_fit <- svm_nonlin_wflow %>%
   last_fit(dt_split)
 ```
 
-```{r}
+```{r, eval=FALSE}
 saveRDS(gb_final_fit, "gb_final_fit.rds")
 saveRDS(knn_final_fit, "knn_final_fit.rds")
 saveRDS(rf_final_fit, "rf_final_fit.rds")
 saveRDS(log_final_fit, "log_final_fit.rds")
 saveRDS(svm_lin_final_fit, "svm_lin_final_fit.rds")
 saveRDS(svm_nonlin_final_fit, "svm_nonlin_final_fit.rds")
+```
+
+```{r}
+gb_final_fit <- readRDS("gb_final_fit.rds")
+knn_final_fit <- readRDS("knn_final_fit.rds")
+rf_final_fit <- readRDS("rf_final_fit.rds")
+log_final_fit <- readRDS("log_final_fit.rds")
+svm_lin_final_fit <- readRDS("svm_lin_final_fit.rds")
+svm_nonlin_final_fit <- readRDS("svm_nonlin_final_fit.rds")
 ```
 
 
@@ -992,19 +1001,19 @@ tibble(
                          select(.estimate)),
          accuracy = map(predictions, ~ .x %>% 
                           accuracy(churn, .pred_class) %>% 
-                         select(.estimate)),
+                          select(.estimate)),
          sensitivity = map(predictions, ~ .x %>% 
                              sensitivity(churn, .pred_class) %>% 
-                         select(.estimate)),
+                             select(.estimate)),
          specificity = map(predictions, ~ .x %>% 
                              specificity(churn, .pred_class) %>% 
-                         select(.estimate)),
+                             select(.estimate)),
          precision = map(predictions, ~ .x %>% 
                            precision(churn, .pred_class) %>% 
-                         select(.estimate)),
+                           select(.estimate)),
          recall = map(predictions, ~ .x %>% 
                         recall(churn, .pred_class) %>% 
-                         select(.estimate))) %>% 
+                        select(.estimate))) %>% 
   select(-predictions) %>% 
   pivot_longer(-c(description),
                names_to = "metric",
@@ -1033,6 +1042,108 @@ gb_final_fit %>%
 ***
 ### Building A Stacked Model
 ***
+
+```{r, eval=FALSE}
+blended_model <- stacks() %>% 
+  add_candidates(gb_tune) %>% 
+  add_candidates(knn_tune) %>% 
+  add_candidates(rf_tune) %>% 
+  add_candidates(log_tune) %>% 
+  add_candidates(svm_lin_tune) %>% 
+  add_candidates(svm_nonlin_tune) %>% 
+  blend_predictions()
+```
+
+```{r, eval=FALSE}
+saveRDS(blended_model, "blended_model.rds")
+```
+
+```{r}
+blended_model <- readRDS("blended_model.rds")
+```
+
+```{r, eval=FALSE}
+blended_model_fit <- blended_model %>% 
+  fit_members()
+```
+
+```{r}
+saveRDS(blended_model_fit, "blended_model_fit.rds")
+```
+
+```{r}
+bind_cols(blended_model_fit %>% 
+            predict(dt_test),
+          blended_model_fit %>% 
+            predict(dt_test, type = "prob"),
+          dt_test %>% select(churn)) %>% 
+  nest(predictions = everything()) %>% 
+  mutate(description = "Blended",
+         roc_auc = map(predictions, ~ .x %>% 
+                         roc_auc(churn, .pred_Yes) %>% 
+                         select(.estimate)),
+         accuracy = map(predictions, ~ .x %>% 
+                          accuracy(churn, .pred_class) %>% 
+                          select(.estimate)),
+         sensitivity = map(predictions, ~ .x %>% 
+                             sensitivity(churn, .pred_class) %>% 
+                             select(.estimate)),
+         specificity = map(predictions, ~ .x %>% 
+                             specificity(churn, .pred_class) %>% 
+                             select(.estimate)),
+         precision = map(predictions, ~ .x %>% 
+                           precision(churn, .pred_class) %>% 
+                           select(.estimate)),
+         recall = map(predictions, ~ .x %>% 
+                        recall(churn, .pred_class) %>% 
+                        select(.estimate))) %>% 
+  select(-predictions) %>% 
+  pivot_longer(-c(description),
+               names_to = "metric",
+               values_to = "values") %>% 
+  unnest(values) %>% 
+  bind_rows(
+    tibble(
+      trained = list(gb_final_fit, knn_final_fit, rf_final_fit, log_final_fit,
+                     svm_lin_final_fit, svm_nonlin_final_fit),
+      description = c("GB", "KNN", "RF", "LOG", "SVM_lin", "SVM_nonlin")
+    ) %>% 
+      mutate(trained_workflow = map(trained, ~ extract_workflow(.x)),
+             predictions = map(trained_workflow,
+                               ~ .x %>% 
+                                 augment(dt_test))) %>% 
+      select(description, predictions) %>% 
+      mutate(roc_auc = map(predictions, ~ .x %>% 
+                             roc_auc(churn, .pred_Yes) %>% 
+                             select(.estimate)),
+             accuracy = map(predictions, ~ .x %>% 
+                              accuracy(churn, .pred_class) %>% 
+                              select(.estimate)),
+             sensitivity = map(predictions, ~ .x %>% 
+                                 sensitivity(churn, .pred_class) %>% 
+                                 select(.estimate)),
+             specificity = map(predictions, ~ .x %>% 
+                                 specificity(churn, .pred_class) %>% 
+                                 select(.estimate)),
+             precision = map(predictions, ~ .x %>% 
+                               precision(churn, .pred_class) %>% 
+                               select(.estimate)),
+             recall = map(predictions, ~ .x %>% 
+                            recall(churn, .pred_class) %>% 
+                            select(.estimate))) %>% 
+      select(-predictions) %>% 
+      pivot_longer(-c(description),
+                   names_to = "metric",
+                   values_to = "values") %>% 
+      unnest(values)) %>% 
+  ggplot(aes(x = description %>% 
+               reorder_within(by = -.estimate, within = metric), 
+             y = .estimate)) +
+  geom_point() +
+  facet_wrap(~ metric, scales = "free_x") +
+  scale_x_reordered() +
+  theme_bw()
+```
 
 
 ***
@@ -1329,3 +1440,74 @@ tibble(
         plot.subtitle = element_text(face = "italic", colour = "grey50",
                                      size = 12))
 ```
+
+```{r class.source = 'fold-show'}
+case_counts_fit <- function(final_fit, probs, holdout_data){
+  
+  bind_cols(
+    final_fit %>% 
+      predict(holdout_data, type = "prob"),
+    holdout_data %>% 
+      select(churn)
+  ) %>% 
+    mutate(
+      .pred_thr = ifelse(.pred_Yes > probs, "Yes", "No"),
+      case = case_when(
+        .pred_thr == "Yes" & churn == "Yes" ~ "TP",
+        .pred_thr == "Yes" & churn == "No" ~ "FP",
+        .pred_thr == "No" & churn == "Yes" ~ "FN",
+        .pred_thr == "No" & churn == "No" ~ "TN"
+      )) %>% 
+    count(case)  
+  
+}
+```
+
+- Profit curve for blended model:
+
+```{r class.source = 'fold-show'}
+profit_curve_fit <- function(final_fit, probs, holdout_data){
+  
+  probs %>% 
+    as_tibble() %>%
+    rename(threshold = value) %>%
+    mutate(counts = map(threshold, ~ case_counts_fit(final_fit, .x,
+                                                     holdout_data))) %>%
+    unnest(counts) %>%
+    pivot_wider(values_from = n, names_from = case) %>% 
+    mutate(
+      across(everything(), ~ replace(., is.na(.), 0)),
+      profit_without_model = TP*0 + FP*500 + TN*500 + FN*0,
+      profit_with_model = TP*500*0.666*0.5 + FP*500*0.666 + TN*500 + FN*0,
+      value_add = profit_with_model - profit_without_model,
+      sign = ifelse(value_add > 0, "positive", "negative")
+    )
+  
+}
+```
+
+```{r}
+blended_curve <- profit_curve_fit(final_fit = blended_model_fit,
+                                  probs = seq(0,1,0.05),
+                                  holdout_data = dt_test)
+
+blended_curve %>% 
+  ggplot(aes(threshold, profit_with_model)) +
+  geom_line(colour = "grey50", size = 0.4) + 
+  geom_point(aes(colour = sign, group = 1)) +
+  labs(colour = "Value-add of the \nmodel compared \nto using no model:",
+       y = "Profit",
+       x = "Classification Threshold", 
+       title = "Forecasted Annual Profit Depending On Classification Threshold",
+       subtitle = "") +
+  scale_y_continuous(labels = dollar_format()) +
+  scale_x_continuous(labels = percent_format(), 
+                     breaks = seq(0, 1, 0.1)) +
+  scale_colour_manual(values = c("firebrick", "dodgerblue")) +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(face = "italic", colour = "grey50",
+                                     size = 12))
+```
+
+Conclusion: No benefit in blending models, much more computationally expensive and slow. Logistic regression with regularisation and shrinkage brings the same performance, considerably faster
