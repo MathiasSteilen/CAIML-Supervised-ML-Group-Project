@@ -850,7 +850,7 @@ bind_rows(
   ggplot(aes(x = model %>% 
                reorder_within(by = mean, within = .metric, fun = median), 
              y = mean)) +
-  geom_jitter(width = 0.2, alpha = 0.2, colour = "midnightblue") +
+  geom_jitter(width = 0.2, alpha = 0.1, colour = "midnightblue") +
   facet_wrap(~ .metric, scales = "free") +
   labs(title = "Hyperparameter Tuning Results",
        subtitle = "Colours indicate different parameter combinations",
@@ -911,7 +911,6 @@ log_final_fit <- readRDS("log_final_fit.rds")
 svm_lin_final_fit <- readRDS("svm_lin_final_fit.rds")
 svm_nonlin_final_fit <- readRDS("svm_nonlin_final_fit.rds")
 ```
-
 
 ```{r, fig.width=8, fig.height=4.95, dpi=300, dev="png", warning=FALSE}
 gb_final_fit %>%
@@ -1072,7 +1071,12 @@ saveRDS(blended_model_fit, "blended_model_fit.rds")
 ```
 
 ```{r}
-bind_cols(blended_model_fit %>% 
+blended_model_fit <- readRDS("blended_model_fit.rds")
+```
+
+
+```{r}
+oos_evaluation_metrics <- bind_cols(blended_model_fit %>% 
             predict(dt_test),
           blended_model_fit %>% 
             predict(dt_test, type = "prob"),
@@ -1135,14 +1139,20 @@ bind_cols(blended_model_fit %>%
       pivot_longer(-c(description),
                    names_to = "metric",
                    values_to = "values") %>% 
-      unnest(values)) %>% 
+      unnest(values))
+
+oos_evaluation_metrics %>% 
   ggplot(aes(x = description %>% 
                reorder_within(by = -.estimate, within = metric), 
              y = .estimate)) +
   geom_point() +
+  labs(title = "Out-Of-Sample Model Evaluation Metrics",
+       y = "Estimate",
+       x = "Model") +
   facet_wrap(~ metric, scales = "free_x") +
   scale_x_reordered() +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 ```
 
 
@@ -1251,7 +1261,7 @@ tibble(
                  svm_lin_final_fit, svm_nonlin_final_fit),
   description = c("GB", "KNN", "RF", "LOG", "SVM_lin", "SVM_nonlin")
 ) %>% 
-  mutate(curve = map(trained, ~ threshold_curve(.x, seq(0, 1, 0.1)))) %>% 
+  mutate(curve = map(trained, ~ threshold_curve(.x, seq(0, 1, 0.05)))) %>% 
   unnest(curve) %>% 
   ggplot(aes(threshold, sensitivity)) +
   geom_line() +
@@ -1274,34 +1284,6 @@ tibble(
                                      colour = "grey50"))
 ```
 
-
-```{r}
-threshold_curve(seq(0, 1, 0.05)) %>% 
-  ggplot(aes(threshold, accuracy)) +
-  geom_line(size = 0.75) +
-  labs(
-    title = "What % of all customers are correctly identified?",
-    subtitle = "Threshold: Modelled Probability > x to classify positively",
-    y = "Accuracy"
-  ) +
-  scale_x_continuous(labels = scales::percent_format(),
-                     breaks = seq(0,1,0.1)) +
-  scale_y_continuous(labels = scales::percent_format(),
-                     breaks = seq(0,1,0.1)) +
-  theme_light() +
-  theme(plot.title = element_text(size = 14, face = "bold"),
-        plot.subtitle = element_text(face = "italic", size = 12,
-                                     colour = "grey50"))
-```
-
-```{r}
-threshold_curve(seq(0,1,0.01)) %>% 
-  arrange(-accuracy) %>% 
-  head(1) %>% 
-  pull(threshold)
-```
-
-
 This curve now demonstrates the real trade off of setting the classification threshold better. At 50%, the default threshold for the model to classify clients above 50% as _will churn_ and below 50% as _will not churn_ has a higher sensitivity. However, at the same time, we are classifying more clients on an absolute level as _will churn_. Therefore, there are likely also more clients in our predicted _will churn_ class, that are not actually going to leave us. Remember, we didn't want to spend additional money on them, as they are not going to leave. 
 
 *Therefore, while we, as the business, want to maximise the number of churning customers we target with retention programmes, we also want to minimise the non-churning customers we wrongly give the coupons/discounts.*
@@ -1309,7 +1291,7 @@ This curve now demonstrates the real trade off of setting the classification thr
 This can be seen below: With an increasing threshold, i.e. the "stricter" we make our model, the fewer % of actually non-churning customers we target with coupons that were designed for the customers at risk of churning.
 
 ```{r, dpi=300}
-threshold_curve(seq(0, 1, 0.01)) %>% 
+threshold_curve(gb_final_fit, seq(0, 1, 0.01)) %>% 
   ggplot(aes(threshold, 1-specificity)) +
   geom_line() +
   geom_segment(aes(y = 1, x = 0, yend = 0, xend = 1),
