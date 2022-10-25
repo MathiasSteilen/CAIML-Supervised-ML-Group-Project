@@ -1,5 +1,5 @@
 ---
-title: "CAIML Group 2: Telco Customer Churn"
+title: "CAIML Group 2: Bank Customer Churn"
 output: 
   html_document:
     theme: simplex
@@ -509,10 +509,24 @@ gb_rec <- recipe(churn ~ .,
   step_zv(all_predictors()) %>% 
   step_normalize(all_numeric_predictors()) %>% 
   step_smote(churn, skip = TRUE)
+
+lin_rec <- recipe(churn ~ .,
+                 data = dt_train) %>%
+  step_rm(customer_id) %>%
+  step_novel(all_nominal_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>% 
+  step_zv(all_predictors()) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_smote(churn, skip = TRUE)
 ```
 
 ```{r, echo=F, include=FALSE, eval=FALSE}
 gb_rec %>%  
+  prep() %>%
+  bake(new_data = dt_test) %>% 
+  glimpse()
+
+lin_rec %>%  
   prep() %>%
   bake(new_data = dt_test) %>% 
   glimpse()
@@ -585,7 +599,7 @@ rf_wflow <- workflow() %>%
 
 log_wflow <- workflow() %>% 
   add_recipe(
-    gb_rec,
+    lin_rec,
     blueprint = hardhat::default_recipe_blueprint(allow_novel_levels = TRUE)
   ) %>% 
   add_model(log_spec)
@@ -661,158 +675,158 @@ eval_metrics <- metric_set(roc_auc, accuracy, sensitivity, specificity,
 
 
 ```{r class.source = 'fold-show', cache=TRUE, eval=FALSE}
-# Gradient Boosting
-start_time = Sys.time()
-
-unregister_dopar <- function() {
-  env <- foreach:::.foreachGlobals
-  rm(list=ls(name=env), pos=env)
-}
-
-cl <- makePSOCKcluster(6)
-registerDoParallel(cl)
-
-gb_tune <- tune_grid(object = gb_wflow,
-                     resamples = folds,
-                     grid = gb_grid,
-                     control = control_grid(save_pred = TRUE,
-                                            save_workflow = TRUE),
-                     metrics = eval_metrics)
-
-stopCluster(cl)
-unregister_dopar()
-
-end_time = Sys.time()
-end_time - start_time
-
-# KNN
-start_time = Sys.time()
-
-unregister_dopar <- function() {
-  env <- foreach:::.foreachGlobals
-  rm(list=ls(name=env), pos=env)
-}
-
-cl <- makePSOCKcluster(6)
-registerDoParallel(cl)
-
-knn_tune <- tune_grid(object = knn_wflow,
-                      resamples = folds,
-                      grid = knn_grid,
-                      control = control_grid(save_pred = TRUE,
-                                             save_workflow = TRUE),
-                      metrics = eval_metrics)
-
-stopCluster(cl)
-unregister_dopar()
-
-end_time = Sys.time()
-end_time - start_time
-
-# Random Forest
-start_time = Sys.time()
-
-unregister_dopar <- function() {
-  env <- foreach:::.foreachGlobals
-  rm(list=ls(name=env), pos=env)
-}
-
-cl <- makePSOCKcluster(6)
-registerDoParallel(cl)
-
-rf_tune <- tune_grid(object = rf_wflow,
-                     resamples = folds,
-                     grid = rf_grid,
-                     control = control_grid(save_pred = TRUE,
-                                            save_workflow = TRUE),
-                     metrics = eval_metrics)
-
-stopCluster(cl)
-unregister_dopar()
-
-end_time = Sys.time()
-end_time - start_time
-
-# Logistic Regression
-start_time = Sys.time()
-
-unregister_dopar <- function() {
-  env <- foreach:::.foreachGlobals
-  rm(list=ls(name=env), pos=env)
-}
-
-cl <- makePSOCKcluster(6)
-registerDoParallel(cl)
-
-log_tune <- tune_grid(object = log_wflow,
-                      resamples = folds,
-                      grid = log_grid,
-                      control = control_grid(save_pred = TRUE,
-                                             save_workflow = TRUE),
-                      metrics = eval_metrics)
-
-stopCluster(cl)
-unregister_dopar()
-
-end_time = Sys.time()
-end_time - start_time
-
-# SVM Linear
-start_time = Sys.time()
-
-unregister_dopar <- function() {
-  env <- foreach:::.foreachGlobals
-  rm(list=ls(name=env), pos=env)
-}
-
-cl <- makePSOCKcluster(6)
-registerDoParallel(cl)
-
-svm_lin_tune <- tune_grid(object = svm_lin_wflow,
-                          resamples = folds,
-                          grid = svm_lin_grid,
-                          control = control_grid(save_pred = TRUE,
-                                                 save_workflow = TRUE),
-                          metrics = eval_metrics)
-
-stopCluster(cl)
-unregister_dopar()
-
-end_time = Sys.time()
-end_time - start_time
-
-# SVM Non-linear
-start_time = Sys.time()
-
-unregister_dopar <- function() {
-  env <- foreach:::.foreachGlobals
-  rm(list=ls(name=env), pos=env)
-}
-
-cl <- makePSOCKcluster(6)
-registerDoParallel(cl)
-
-svm_nonlin_tune <- tune_grid(object = svm_nonlin_wflow,
-                             resamples = folds,
-                             grid = svm_nonlin_grid,
-                             control = control_grid(save_pred = TRUE,
-                                                    save_workflow = TRUE),
-                             metrics = eval_metrics)
-
-stopCluster(cl)
-unregister_dopar()
-
-end_time = Sys.time()
-end_time - start_time
+# # Gradient Boosting
+# start_time = Sys.time()
+# 
+# unregister_dopar <- function() {
+#   env <- foreach:::.foreachGlobals
+#   rm(list=ls(name=env), pos=env)
+# }
+# 
+# cl <- makePSOCKcluster(6)
+# registerDoParallel(cl)
+# 
+# gb_tune <- tune_grid(object = gb_wflow,
+#                      resamples = folds,
+#                      grid = gb_grid,
+#                      control = control_grid(save_pred = TRUE,
+#                                             save_workflow = TRUE),
+#                      metrics = eval_metrics)
+# 
+# stopCluster(cl)
+# unregister_dopar()
+# 
+# end_time = Sys.time()
+# end_time - start_time
+# 
+# # KNN
+# start_time = Sys.time()
+# 
+# unregister_dopar <- function() {
+#   env <- foreach:::.foreachGlobals
+#   rm(list=ls(name=env), pos=env)
+# }
+# 
+# cl <- makePSOCKcluster(6)
+# registerDoParallel(cl)
+# 
+# knn_tune <- tune_grid(object = knn_wflow,
+#                       resamples = folds,
+#                       grid = knn_grid,
+#                       control = control_grid(save_pred = TRUE,
+#                                              save_workflow = TRUE),
+#                       metrics = eval_metrics)
+# 
+# stopCluster(cl)
+# unregister_dopar()
+# 
+# end_time = Sys.time()
+# end_time - start_time
+# 
+# # Random Forest
+# start_time = Sys.time()
+# 
+# unregister_dopar <- function() {
+#   env <- foreach:::.foreachGlobals
+#   rm(list=ls(name=env), pos=env)
+# }
+# 
+# cl <- makePSOCKcluster(6)
+# registerDoParallel(cl)
+# 
+# rf_tune <- tune_grid(object = rf_wflow,
+#                      resamples = folds,
+#                      grid = rf_grid,
+#                      control = control_grid(save_pred = TRUE,
+#                                             save_workflow = TRUE),
+#                      metrics = eval_metrics)
+# 
+# stopCluster(cl)
+# unregister_dopar()
+# 
+# end_time = Sys.time()
+# end_time - start_time
+# 
+# # Logistic Regression
+# start_time = Sys.time()
+# 
+# unregister_dopar <- function() {
+#   env <- foreach:::.foreachGlobals
+#   rm(list=ls(name=env), pos=env)
+# }
+# 
+# cl <- makePSOCKcluster(6)
+# registerDoParallel(cl)
+# 
+# log_tune <- tune_grid(object = log_wflow,
+#                       resamples = folds,
+#                       grid = log_grid,
+#                       control = control_grid(save_pred = TRUE,
+#                                              save_workflow = TRUE),
+#                       metrics = eval_metrics)
+# 
+# stopCluster(cl)
+# unregister_dopar()
+# 
+# end_time = Sys.time()
+# end_time - start_time
+# 
+# # SVM Linear
+# start_time = Sys.time()
+# 
+# unregister_dopar <- function() {
+#   env <- foreach:::.foreachGlobals
+#   rm(list=ls(name=env), pos=env)
+# }
+# 
+# cl <- makePSOCKcluster(6)
+# registerDoParallel(cl)
+# 
+# svm_lin_tune <- tune_grid(object = svm_lin_wflow,
+#                           resamples = folds,
+#                           grid = svm_lin_grid,
+#                           control = control_grid(save_pred = TRUE,
+#                                                  save_workflow = TRUE),
+#                           metrics = eval_metrics)
+# 
+# stopCluster(cl)
+# unregister_dopar()
+# 
+# end_time = Sys.time()
+# end_time - start_time
+# 
+# # SVM Non-linear
+# start_time = Sys.time()
+# 
+# unregister_dopar <- function() {
+#   env <- foreach:::.foreachGlobals
+#   rm(list=ls(name=env), pos=env)
+# }
+# 
+# cl <- makePSOCKcluster(6)
+# registerDoParallel(cl)
+# 
+# svm_nonlin_tune <- tune_grid(object = svm_nonlin_wflow,
+#                              resamples = folds,
+#                              grid = svm_nonlin_grid,
+#                              control = control_grid(save_pred = TRUE,
+#                                                     save_workflow = TRUE),
+#                              metrics = eval_metrics)
+# 
+# stopCluster(cl)
+# unregister_dopar()
+# 
+# end_time = Sys.time()
+# end_time - start_time
 ```
 
 ```{r, eval=FALSE}
-saveRDS(gb_tune, "gb_tune.rds")
-saveRDS(knn_tune, "knn_tune.rds")
-saveRDS(rf_tune, "rf_tune.rds")
-saveRDS(log_tune, "log_tune.rds")
-saveRDS(svm_lin_tune, "svm_lin_tune.rds")
-saveRDS(svm_nonlin_tune, "svm_nonlin_tune.rds")
+# saveRDS(gb_tune, "gb_tune.rds")
+# saveRDS(knn_tune, "knn_tune.rds")
+# saveRDS(rf_tune, "rf_tune.rds")
+# saveRDS(log_tune, "log_tune.rds")
+# saveRDS(svm_lin_tune, "svm_lin_tune.rds")
+# saveRDS(svm_nonlin_tune, "svm_nonlin_tune.rds")
 ```
 
 ```{r}
@@ -869,45 +883,47 @@ bind_rows(
 Fitting the final models:
 
 ```{r, eval=FALSE}
-gb_final_fit <- gb_wflow %>%
-  finalize_workflow(select_best(gb_tune, metric = "roc_auc")) %>% 
-  last_fit(dt_split)
-
-knn_final_fit <- knn_wflow %>%
-  finalize_workflow(select_best(knn_tune, metric = "roc_auc")) %>% 
-  last_fit(dt_split)
-
-rf_final_fit <- rf_wflow %>%
-  finalize_workflow(select_best(rf_tune, metric = "roc_auc")) %>% 
-  last_fit(dt_split)
-
-log_final_fit <- log_wflow %>%
-  finalize_workflow(select_best(log_tune, metric = "roc_auc")) %>% 
-  last_fit(dt_split)
-
-svm_lin_final_fit <- svm_lin_wflow %>%
-  finalize_workflow(select_best(svm_lin_tune, metric = "roc_auc")) %>% 
-  last_fit(dt_split)
-
-svm_nonlin_final_fit <- svm_nonlin_wflow %>%
-  finalize_workflow(select_best(svm_nonlin_tune, metric = "roc_auc")) %>% 
-  last_fit(dt_split)
+# gb_final_fit <- gb_wflow %>%
+#   finalize_workflow(select_best(gb_tune, metric = "roc_auc")) %>% 
+#   last_fit(dt_split)
+# 
+# knn_final_fit <- knn_wflow %>%
+#   finalize_workflow(select_best(knn_tune, metric = "roc_auc")) %>% 
+#   last_fit(dt_split)
+# 
+# rf_final_fit <- rf_wflow %>%
+#   finalize_workflow(select_best(rf_tune, metric = "roc_auc")) %>% 
+#   last_fit(dt_split)
+# 
+# log_final_fit <- log_wflow %>%
+#   finalize_workflow(select_best(log_tune, metric = "roc_auc")) %>% 
+#   last_fit(dt_split)
+# 
+# svm_lin_final_fit <- svm_lin_wflow %>%
+#   finalize_workflow(select_best(svm_lin_tune, metric = "roc_auc")) %>% 
+#   last_fit(dt_split)
+# 
+# svm_nonlin_final_fit <- svm_nonlin_wflow %>%
+#   finalize_workflow(select_best(svm_nonlin_tune, metric = "roc_auc")) %>% 
+#   last_fit(dt_split)
 ```
 
 ```{r, eval=FALSE}
-saveRDS(gb_final_fit, "gb_final_fit.rds")
-saveRDS(knn_final_fit, "knn_final_fit.rds")
-saveRDS(rf_final_fit, "rf_final_fit.rds")
-saveRDS(log_final_fit, "log_final_fit.rds")
-saveRDS(svm_lin_final_fit, "svm_lin_final_fit.rds")
-saveRDS(svm_nonlin_final_fit, "svm_nonlin_final_fit.rds")
+# saveRDS(gb_final_fit, "gb_final_fit.rds")
+# saveRDS(knn_final_fit, "knn_final_fit.rds")
+# saveRDS(rf_final_fit, "rf_final_fit.rds")
+# saveRDS(log_final_fit, "log_final_fit.rds")
+# saveRDS(svm_lin_final_fit, "svm_lin_final_fit.rds")
+# saveRDS(svm_nonlin_final_fit, "svm_nonlin_final_fit.rds")
 ```
 
 ```{r}
 gb_final_fit <- readRDS("gb_final_fit.rds")
 knn_final_fit <- readRDS("knn_final_fit.rds")
 rf_final_fit <- readRDS("rf_final_fit.rds")
-log_final_fit <- readRDS("log_final_fit.rds")
+log_final_fit <- log_wflow %>%
+  finalize_workflow(select_best(log_tune, metric = "roc_auc")) %>% 
+  last_fit(dt_split)
 svm_lin_final_fit <- readRDS("svm_lin_final_fit.rds")
 svm_nonlin_final_fit <- readRDS("svm_nonlin_final_fit.rds")
 ```
@@ -918,7 +934,7 @@ gb_final_fit %>%
   extract_fit_parsnip() %>% 
   vi() %>%
   slice_max(order_by = Importance, n = 100) %>% 
-  ggplot(aes(Importance, reorder(Variable, Importance))) +
+  ggplot(aes(Import.ance, reorder(Variable, Importance))) +
   geom_col(fill = "midnightblue", colour = "white") +
   labs(title = "Variable Importance",
        subtitle = NULL,
@@ -945,7 +961,7 @@ rf_final_fit %>%
 
 log_final_fit %>%
   extract_workflow() %>% 
-  extract_fit_parsnip() %>% 
+  extract_fit_parsnip() %>%  
   vi() %>% 
   slice_max(order_by = Importance, n = 25) %>% 
   mutate(Importance = ifelse(Sign == "NEG", Importance * -1, Importance)) %>% 
@@ -1392,7 +1408,7 @@ tibble(
                    finalize_workflow(select_best(log_tune,
                                                  metric = "roc_auc")) %>% 
                    last_fit(dt_split),
-                 log_wflow %>%
+                 log_w_flow %>%
                    finalize_workflow(select_best(log_tune,
                                                  metric = "sensitivity")) %>% 
                    last_fit(dt_split),
