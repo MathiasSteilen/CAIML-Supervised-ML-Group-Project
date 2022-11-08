@@ -12,11 +12,12 @@ editor_options:
   chunk_output_type: console
 ---
 
+```{=html}
 <style>
 body {
 text-align: justify}
 </style>
-
+```
 ```{css, echo=FALSE}
 pre, code {white-space:pre !important; overflow-x:auto}
 ```
@@ -44,21 +45,23 @@ library(themis)
 
 ```{r}
 data <- read_csv("Telco_Churn_Data.csv") %>% 
-  janitor::clean_names()
+  janitor::clean_names() %>% 
+  mutate(
+    senior_citizen = ifelse(senior_citizen == 1, "Yes", "No"),
+    across(c(device_protection, online_backup, online_security, 
+             streaming_movies, streaming_tv, tech_support),
+           ~ ifelse(.x == "No internet service", "No", .x)),
+    across(c(multiple_lines),
+           ~ ifelse(.x == "No phone service", "No", .x)),
+    across(where(is.character), as.factor)
+  )
 ```
 
 ```{r class.source = 'fold-show'}
 glimpse(data)
 ```
 
-- Aligning senior_citizen with other variables
-
-```{r}
-data <- data %>% 
-  mutate(senior_citizen = ifelse(senior_citizen == 1, "Yes", "No"))
-```
-
-- Little missing data: No imputation necessary, just drop missing values
+-   Little missing data: No imputation necessary, just drop missing values
 
 ```{r, fig.width=8, fig.height=4.95, dpi=300, dev="png", warning=FALSE}
 colMeans(is.na(data)) %>% 
@@ -82,14 +85,6 @@ data <- data %>%
   drop_na()
 ```
 
-- Convert to factors
-
-```{r}
-data <- data %>% 
-  mutate(across(where(is.character), as.factor))
-```
-
-
 <br>
 
 ***
@@ -98,8 +93,7 @@ data <- data %>%
 
 The next step is to walk through the available predictors and understand relations to the target variable. Below, every variable is briefly looked at and presented, enabling a better understanding of the complete training data.
 
-
-- Counting categorical variables:
+-   Counting categorical variables:
 
 ```{r}
 data %>% 
@@ -115,7 +109,7 @@ data %>%
   theme_bw()
 ```
 
-- Distribution of numerical variables:
+-   Distribution of numerical variables:
 
 ```{r}
 data %>% 
@@ -126,7 +120,6 @@ data %>%
   facet_wrap(~ name, scales = "free") +
   theme_bw()
 ```
-
 
 <br>
 
@@ -160,7 +153,6 @@ data %>%
   pull(churn) %>% 
   levels()
 ```
-
 
 <br>
 
@@ -440,7 +432,7 @@ data %>%
   labs(title = "Relation: Monthly Charges And Probability Of Churning",
        subtitle = "Dots represent binned means. Monthly charges rounded to nearest ten.",
        y = "P(churn = Yes)") +
-  scale_y_continuous(labels = scales::perLcent_format()) +
+  scale_y_continuous(labels = scales::percent_format()) +
   scale_size_continuous(range = c(2.5, 5)) +
   theme_minimal() +
   theme(plot.title = element_text(face = "bold", size = 12),
@@ -480,30 +472,6 @@ cor(data$tenure, data$total_charges)
 
 <br>
 
-```{r}
-tmp_recipe <- recipe(churn ~ ., data = data) %>% 
-  step_mutate(churn = ifelse(churn == "Yes", 1, 0)) %>% 
-  step_rm(customer_id) %>% 
-  step_dummy(all_nominal_predictors())
-
-tmp_recipe %>% 
-  prep() %>% 
-  juice() %>% 
-  select(-churn, churn) %>% 
-  ggcorr(label = T, label_size = 3)
-
-tmp_data <- tmp_recipe %>% 
-  prep() %>% 
-  juice() %>% 
-  select(-churn, churn)
-
-lm(churn ~ ., data = tmp_data) %>% 
-  alias()
-```
-
-
-<br>
-
 ***
 ### Building And Training The Model
 ***
@@ -511,34 +479,38 @@ lm(churn ~ ., data = tmp_data) %>%
 First, the data is split into training and testing sets. Also, five-fold cross validation is employed for reliable calculation of performance metrics, bearing in mind time efficiency.
 
 ```{r class.source = 'fold-show'}
+set.seed(1)
+
 dt_split <- data %>% 
   initial_split(strata = churn)
 
 dt_train <- training(dt_split)
 dt_test <- testing(dt_split)
 
+set.seed(1)
+
 folds <- vfold_cv(dt_train, v = 5, strata = churn)
 ```
 
-The recipe in the _tidymodels_ framework makes it very straightforward to include all feature engineering in one step, preventing data leakage from the test set and uniformly applying the same steps to the holdout in the final fit. As mentioned in the EDA, the class imbalance will be dealt with using _step_smote_ from the _themis_ package. It samples new observations for the minority class using nearest neighbours and is very simple and fast to put to use.
+The recipe in the *tidymodels* framework makes it very straightforward to include all feature engineering in one step, preventing data leakage from the test set and uniformly applying the same steps to the holdout in the final fit. As mentioned in the EDA, the class imbalance will be dealt with using *step_smote* from the *themis* package. It samples new observations for the minority class using nearest neighbours and is very simple and fast to put to use.
 
 ```{r class.source = 'fold-show'}
 gb_rec <- recipe(churn ~ .,
                  data = dt_train) %>%
   step_rm(customer_id) %>%
   step_novel(all_nominal_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>% 
   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
   step_zv(all_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>% 
   step_smote(churn, skip = TRUE)
 
 lin_rec <- recipe(churn ~ .,
                   data = dt_train) %>%
   step_rm(customer_id) %>%
   step_novel(all_nominal_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
   step_zv(all_predictors()) %>% 
-  step_normalize(all_numeric_predictors()) %>% 
   step_smote(churn, skip = TRUE)
 ```
 
@@ -652,9 +624,10 @@ eval_metrics <- metric_set(roc_auc, accuracy, sensitivity, specificity,
                            precision, recall)
 ```
 
-
 ```{r class.source = 'fold-show', cache=TRUE, eval=FALSE}
+
 # Gradient Boosting
+set.seed(1)
 start_time = Sys.time()
 
 unregister_dopar <- function() {
@@ -683,6 +656,7 @@ end_time = Sys.time()
 end_time - start_time
 
 # KNN
+set.seed(1)
 start_time = Sys.time()
 
 unregister_dopar <- function() {
@@ -707,6 +681,7 @@ end_time = Sys.time()
 end_time - start_time
 
 # Random Forest
+set.seed(1)
 start_time = Sys.time()
 
 unregister_dopar <- function() {
@@ -733,6 +708,7 @@ end_time = Sys.time()
 end_time - start_time
 
 # Logistic Regression
+set.seed(1)
 start_time = Sys.time()
 
 unregister_dopar <- function() {
@@ -758,6 +734,7 @@ end_time = Sys.time()
 end_time - start_time
 
 # SVM Linear
+set.seed(1)
 start_time = Sys.time()
 
 unregister_dopar <- function() {
@@ -782,6 +759,7 @@ end_time = Sys.time()
 end_time - start_time
 
 # SVM Non-linear
+set.seed(1)
 start_time = Sys.time()
 
 unregister_dopar <- function() {
@@ -967,7 +945,7 @@ log_final_fit %>%
         legend.position = "bottom")
 ```
 
-ROC Curves:
+ROC Curves: KNN makes no sense
 
 ```{r}
 tibble(
@@ -1035,37 +1013,33 @@ Confusion matrices:
 
 ```{r}
 gb_final_fit %>% 
-  collect_predictions() %>% 
+  extract_workflow() %>% 
+  augment(dt_test) %>% 
+  conf_mat(churn, .pred_class)
+
+knn_final_fit %>% 
+  extract_workflow() %>% 
+  augment(dt_test) %>% 
   conf_mat(churn, .pred_class)
 ```
 
 <br>
 
-***
+------------------------------------------------------------------------
+
 ### Building A Stacked Model
-***
+
+------------------------------------------------------------------------
 
 ```{r, eval=FALSE}
-blended_model <- stacks() %>% 
+blended_model_fit <- stacks() %>% 
   add_candidates(gb_tune) %>% 
   add_candidates(knn_tune) %>% 
   add_candidates(rf_tune) %>% 
   add_candidates(log_tune) %>% 
   add_candidates(svm_lin_tune) %>% 
   add_candidates(svm_nonlin_tune) %>% 
-  blend_predictions()
-```
-
-```{r, eval=FALSE}
-saveRDS(blended_model, "blended_model.rds")
-```
-
-```{r}
-blended_model <- readRDS("blended_model.rds")
-```
-
-```{r, eval=FALSE}
-blended_model_fit <- blended_model %>% 
+  blend_predictions() %>% 
   fit_members()
 ```
 
@@ -1076,7 +1050,6 @@ saveRDS(blended_model_fit, "blended_model_fit.rds")
 ```{r}
 blended_model_fit <- readRDS("blended_model_fit.rds")
 ```
-
 
 ```{r}
 oos_evaluation_metrics <- bind_cols(blended_model_fit %>% 
@@ -1158,12 +1131,13 @@ oos_evaluation_metrics %>%
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 ```
 
+------------------------------------------------------------------------
 
-***
 ### Applying The Trained Model To The Business/Real World Setting
-***
 
-From the EDA as well as variable importance, we have learned about the most important variables to predict bank customer churn. Transaction amounts and frequency, as well as personal traits, such as relationships and age are of high importance. 
+------------------------------------------------------------------------
+
+From the EDA as well as variable importance, we have learned about the most important variables to predict bank customer churn. Transaction amounts and frequency, as well as personal traits, such as relationships and age are of high importance.
 
 <br>
 
@@ -1183,11 +1157,11 @@ gb_final_fit %>%
   glimpse()
 ```
 
-In a business setting, a logical consequence for a model as reliable as this one predicting a customer to churn would be to target said customer with a retention programme, for instance via selected benefits only attributed to customers at risk of churning (e.g. coupons, discounts etc.). However, it would likely not be economically viable to target all customers that have a greater than 50% chance of churning, as it would most likely be a waste of resources. If a customer has only a 50.00001% chance of churning, according to the model, and assuming that the model is right, then the customer should not deserve a discount equal to the one given to a customer with >90% probability of leaving. After all, there is an around 50% chance that the first might not intend to leave in the first place. Then the discount would be wasted. 
+In a business setting, a logical consequence for a model as reliable as this one predicting a customer to churn would be to target said customer with a retention programme, for instance via selected benefits only attributed to customers at risk of churning (e.g. coupons, discounts etc.). However, it would likely not be economically viable to target all customers that have a greater than 50% chance of churning, as it would most likely be a waste of resources. If a customer has only a 50.00001% chance of churning, according to the model, and assuming that the model is right, then the customer should not deserve a discount equal to the one given to a customer with \>90% probability of leaving. After all, there is an around 50% chance that the first might not intend to leave in the first place. Then the discount would be wasted.
 
 *The business only wants to give costly retention programmes to customers that are at a high risk of leaving, not to the ones who were more likely going to stay anyway.*
 
-Therefore, businesses must find a threshold: Where do you set the minimum probability proposed by the model to classify a customer as _at risk of churning_? There exists an inherent trade-off in wanting to prevent customers from leaving the business, and not wanting to accumulate costs giving out retention programmes to many clients, who were not at high risk of leaving. As an example, the bank might decide that it targets the top 25% of customers with highest probability. This can be visualised with a gain curve, which comes with the _tidymodels_ package in R:
+Therefore, businesses must find a threshold: Where do you set the minimum probability proposed by the model to classify a customer as *at risk of churning*? There exists an inherent trade-off in wanting to prevent customers from leaving the business, and not wanting to accumulate costs giving out retention programmes to many clients, who were not at high risk of leaving. As an example, the bank might decide that it targets the top 25% of customers with highest probability. This can be visualised with a gain curve, which comes with the *tidymodels* package in R:
 
 ```{r class.source = 'fold-show', , dpi=300}
 gb_final_fit %>% 
@@ -1199,7 +1173,7 @@ gb_final_fit %>%
 
 The curve can be read the following way: If targeting the x customers with highest probability of leaving, how many % y do we get right of the customers who will actually leave? In the case of targeting the 25% of customers with highest modelled probability of leaving, we would get close to but not 100% of the customers with an intention of leaving right. The curve being very close to the upper edge of the grey area indicates that the underlying model works very well.
 
-The gain curve is really useful and quick to make in R, however it only says "target the 25% of customers with highest probabilities". This being dependent on the customers that predictions are being made on, I wanted to create a function that says "target only customers that have a probability _x_ of leaving or higher". This can be seen here (Code for the function call on the chart can be inspected by clicking the "Code" button to the right below):
+The gain curve is really useful and quick to make in R, however it only says "target the 25% of customers with highest probabilities". This being dependent on the customers that predictions are being made on, I wanted to create a function that says "target only customers that have a probability *x* of leaving or higher". This can be seen here (Code for the function call on the chart can be inspected by clicking the "Code" button to the right below):
 
 ```{r class.source = 'fold-show'}
 case_counts <- function(final_fit, probs){
@@ -1287,7 +1261,7 @@ tibble(
                                      colour = "grey50"))
 ```
 
-This curve now demonstrates the real trade off of setting the classification threshold better. At 50%, the default threshold for the model to classify clients above 50% as _will churn_ and below 50% as _will not churn_ has a higher sensitivity. However, at the same time, we are classifying more clients on an absolute level as _will churn_. Therefore, there are likely also more clients in our predicted _will churn_ class, that are not actually going to leave us. Remember, we didn't want to spend additional money on them, as they are not going to leave. 
+This curve now demonstrates the real trade off of setting the classification threshold better. At 50%, the default threshold for the model to classify clients above 50% as *will churn* and below 50% as *will not churn* has a higher sensitivity. However, at the same time, we are classifying more clients on an absolute level as *will churn*. Therefore, there are likely also more clients in our predicted *will churn* class, that are not actually going to leave us. Remember, we didn't want to spend additional money on them, as they are not going to leave.
 
 *Therefore, while we, as the business, want to maximise the number of churning customers we target with retention programmes, we also want to minimise the non-churning customers we wrongly give the coupons/discounts.*
 
@@ -1321,20 +1295,35 @@ threshold_curve(gb_final_fit, seq(0, 1, 0.01)) %>%
 
 With this curve, we can look at an actual business case: Let's make some quick and dirty assumptions about profit generated per customers.
 
-- Let's say, a regular, non-churning customer generates USD 500 of profit for us.
-- We are going to give out a discount of 33.3% to customers we believe will churn in the next period. It is effective, but not perfectly effective, so only 50% of those customers, who were going to leave, stay after getting the discount. The others still leave and leave us with USD $0$.
-- Customers who leave us do not spend any money anymore, so we get USD $0$ from them.
+-   Let's say, a regular, non-churning customer generates USD 500 of profit for us.
+-   We are going to give out a discount of 33.3% to customers we believe will churn in the next period. It is effective, but not perfectly effective, so only 50% of those customers, who were going to leave, stay after getting the discount. The others still leave and leave us with USD $0$.
+-   Customers who leave us do not spend any money anymore, so we get USD $0$ from them.
 
 In model terms this implies:
 
-- TP = True Positive: We predicted the customer leaves, we gave out a 33.3% voucher. 50% of them stay and create profit of USD 500, the rest leaves. Our profit from this group is $N_{TP}*500*0.5*0.666$.
-- FP = False Positive: We predicted the customers leaves, but they weren't planning on leaving. We gave them a 33.3% discount, all of them stay and our profit from this group is $N_{FP}*500*0.666$.
-- TN = True Negative: We predicted the customer is not going to leave, they actually didn't leave. We like those customers because of their loyalty and because they give us the most money, namely $N_{TN}*500$.
-- FN = False Negatives: We predicted the customer is not going to leave, but they actually left. These are bad, because we didn't target them with a voucher. Ouch: The profit from this group is $0$.
+-   TP = True Positive: We predicted the customer leaves, we gave out a 33.3% voucher. 50% of them stay and create profit of USD 500, the rest leaves. Our profit from this group is $N_{TP}*500*0.5*0.666$.
+-   FP = False Positive: We predicted the customers leaves, but they weren't planning on leaving. We gave them a 33.3% discount, all of them stay and our profit from this group is $N_{FP}*500*0.666$.
+-   TN = True Negative: We predicted the customer is not going to leave, they actually didn't leave. We like those customers because of their loyalty and because they give us the most money, namely $N_{TN}*500$.
+-   FN = False Negatives: We predicted the customer is not going to leave, but they actually left. These are bad, because we didn't target them with a voucher. Ouch: The profit from this group is $0$.
 
 Now I can go ahead and write a function, which counts our TP, FP, TN and FN and calculates the profit based on the sum of all of the four points above, for each threshold we could use in our model.
 
 ```{r class.source = 'fold-show'}
+case_counts <- function(final_fit, probs){
+  
+  final_fit %>% 
+    collect_predictions() %>% 
+    mutate(.pred_thr = ifelse(.pred_Yes > probs, "Yes", "No"),
+           case = case_when(
+             .pred_thr == "Yes" & churn == "Yes" ~ "TP",
+             .pred_thr == "Yes" & churn == "No" ~ "FP",
+             .pred_thr == "No" & churn == "Yes" ~ "FN",
+             .pred_thr == "No" & churn == "No" ~ "TN"
+           )) %>% 
+    count(case)  
+  
+}
+
 profit_curve <- function(final_fit, probs){
   
   probs %>% 
@@ -1357,13 +1346,17 @@ profit_curve <- function(final_fit, probs){
 Profit curve for all models:
 
 ```{r}
-tibble(
+profit_curve_models <- tibble(
   trained = list(gb_final_fit, knn_final_fit, rf_final_fit, log_final_fit,
                  svm_lin_final_fit, svm_nonlin_final_fit),
   description = c("GB", "KNN", "RF", "LOG", "SVM_lin", "SVM_nonlin")
 ) %>% 
   mutate(curve = map(trained, ~ profit_curve(.x, seq(0, 1, 0.025)))) %>% 
-  unnest(curve) %>% 
+  unnest(curve)
+```
+
+```{r}
+profit_curve_models %>% 
   ggplot(aes(threshold, profit_with_model)) +
   geom_line(colour = "grey50", size = 0.4) + 
   geom_point(aes(colour = sign, group = 1)) +
@@ -1383,10 +1376,39 @@ tibble(
                                      size = 12))
 ```
 
-- ROC AUC should be the best metric:
+```{r}
+profit_curve_models %>% 
+  group_by(description) %>%  
+  slice_max(order_by = profit_with_model, n = 1) %>% 
+  ungroup() %>% 
+  mutate(profit_delta = profit_with_model/profit_without_model - 1) %>% 
+  select(description, profit_delta, threshold)
+
+profit_curve_models %>% 
+  group_by(description) %>%  
+  slice_max(order_by = profit_with_model, n = 1) %>% 
+  ungroup() %>% 
+  mutate(profit_delta = profit_with_model/profit_without_model - 1) %>% 
+  ggplot(aes(x = description %>% fct_reorder(-profit_with_model), 
+             y = profit_delta)) +
+  geom_col(fill = "midnightblue", alpha = 0.8) +
+  geom_text(aes(label = threshold %>% percent(prefix = "Threshold\n")),
+            nudge_y = -0.003, colour = "white", size = 3) +
+  labs(title = "Maximum Profit Achieved By Each Model",
+       subtitle = "TBD",
+       y = "Impact on Profit",
+       x = "Model") +
+  scale_y_continuous(labels = percent_format()) +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(face = "italic", colour = "grey50",
+                                     size = 12))
+```
+
+- Checking which metric would be best for fit: ROC AUC should be best
 
 ```{r}
-tibble(
+profit_curve_metrics <- tibble(
   trained = list(log_wflow %>%
                    finalize_workflow(select_best(log_tune,
                                                  metric = "accuracy")) %>% 
@@ -1402,11 +1424,24 @@ tibble(
                  log_wflow %>%
                    finalize_workflow(select_best(log_tune,
                                                  metric = "specificity")) %>% 
+                   last_fit(dt_split),
+                 log_wflow %>%
+                   finalize_workflow(select_best(log_tune,
+                                                 metric = "precision")) %>% 
+                   last_fit(dt_split),
+                 log_wflow %>%
+                   finalize_workflow(select_best(log_tune,
+                                                 metric = "recall")) %>% 
                    last_fit(dt_split)),
-  description = c("accuracy", "roc_auc", "sensitivity", "specificity")
+  description = c("accuracy", "roc_auc", "sensitivity", "specificity",
+                  "precision", "recall")
 ) %>% 
   mutate(curve = map(trained, ~ profit_curve(.x, seq(0, 1, 0.025)))) %>% 
-  unnest(curve) %>% 
+  unnest(curve)
+```
+
+```{r}
+profit_curve_metrics %>% 
   ggplot(aes(threshold, profit_with_model)) +
   geom_line(colour = "grey50", size = 0.4) + 
   geom_point(aes(colour = sign, group = 1)) +
@@ -1425,6 +1460,30 @@ tibble(
         plot.subtitle = element_text(face = "italic", colour = "grey50",
                                      size = 12))
 ```
+
+```{r}
+profit_curve_metrics %>% 
+  group_by(description) %>%  
+  slice_max(order_by = profit_with_model, n = 1) %>%
+  ungroup() %>% 
+  mutate(profit_delta = profit_with_model/profit_without_model - 1) %>% 
+  ggplot(aes(x = description %>% fct_reorder(-profit_with_model), 
+             y = profit_delta)) +
+  geom_col(fill = "midnightblue", alpha = 0.8) +
+  geom_text(aes(label = threshold %>% percent(prefix = "Threshold\n")),
+            nudge_y = -0.003, colour = "white", size = 3) +
+  labs(title = "Maximum Profit Achieved By Logistic Regression",
+       subtitle = "Best model in tuning selected on each metric",
+       y = "Impact on Profit",
+       x = "Model") +
+  scale_y_continuous(labels = percent_format()) +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(face = "italic", colour = "grey50",
+                                     size = 12))
+```
+
+Looking at the blended model last:
 
 ```{r class.source = 'fold-show'}
 case_counts_fit <- function(final_fit, probs, holdout_data){
@@ -1444,11 +1503,10 @@ case_counts_fit <- function(final_fit, probs, holdout_data){
         .pred_thr == "No" & churn == "No" ~ "TN"
       )) %>% 
     count(case)  
-  
 }
 ```
 
-- Profit curve for blended model:
+-   Profit curve for blended model:
 
 ```{r class.source = 'fold-show'}
 profit_curve_fit <- function(final_fit, probs, holdout_data){
@@ -1467,7 +1525,6 @@ profit_curve_fit <- function(final_fit, probs, holdout_data){
       value_add = profit_with_model - profit_without_model,
       sign = ifelse(value_add > 0, "positive", "negative")
     )
-  
 }
 ```
 
@@ -1475,7 +1532,9 @@ profit_curve_fit <- function(final_fit, probs, holdout_data){
 blended_curve <- profit_curve_fit(final_fit = blended_model_fit,
                                   probs = seq(0,1,0.05),
                                   holdout_data = dt_test)
+```
 
+```{r}
 blended_curve %>% 
   ggplot(aes(threshold, profit_with_model)) +
   geom_line(colour = "grey50", size = 0.4) + 
@@ -1494,5 +1553,14 @@ blended_curve %>%
         plot.subtitle = element_text(face = "italic", colour = "grey50",
                                      size = 12))
 ```
+
+```{r}
+blended_curve %>% 
+  mutate(profit_delta = profit_with_model/profit_without_model - 1) %>% 
+  slice_max(order_by = profit_delta, n = 1) %>% 
+  select(profit_delta)
+```
+
+Gradient boosting has 0.0342, 0.1 ppts better than blended model
 
 Conclusion: No benefit in blending models, much more computationally expensive and slow. Logistic regression with regularisation and shrinkage brings the same performance, considerably faster
