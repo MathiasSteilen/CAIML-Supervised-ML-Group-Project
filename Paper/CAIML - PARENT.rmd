@@ -20,6 +20,7 @@ header-includes:
   - \usepackage{lscape}
   - \newcommand{\blandscape}{\begin{landscape}}
   - \newcommand{\elandscape}{\end{landscape}}
+  - \usepackage{ragged2e}
 bibliography: bibliography.bib
 ---
 
@@ -91,7 +92,7 @@ By
 
 \centering
 \newpage
-\raggedright
+\justifying
 \tableofcontents
 
 <!-- List of figures and tables -->
