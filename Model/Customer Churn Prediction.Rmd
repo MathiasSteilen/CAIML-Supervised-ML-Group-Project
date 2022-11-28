@@ -12,15 +12,14 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{=html}
 <style>
 body {
 text-align: justify}
 </style>
-```
-```{css, echo=FALSE}
-pre, code {white-space:pre !important; overflow-x:auto}
-```
+
+<!-- ```{css, echo=FALSE} -->
+<!-- pre, code {white-space:pre !important; overflow-x:auto} -->
+<!-- ``` -->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
@@ -97,7 +96,7 @@ The next step is to walk through the available predictors and understand relatio
 
 ```{r}
 data %>% 
-  select(where(is.factor), -customer_id) %>% 
+  select(where(is.factor)) %>% 
   pivot_longer(everything()) %>% 
   group_by(name) %>%
   count(value) %>% 
@@ -153,32 +152,6 @@ data %>%
   pull(churn) %>% 
   levels()
 ```
-
-<br>
-
-##### customer_id
-
-```{r}
-data %>% count(customer_id, sort = T)
-```
-
-Likely no predictive power, too many levels.
-
-```{r}
-data %>% 
-  separate(customer_id, into = c("number", "letters"), sep = "-") %>% 
-  select(number, letters) %>% 
-  count(number, sort = T)
-```
-
-```{r}
-data %>% 
-  separate(customer_id, into = c("number", "letters"), sep = "-") %>% 
-  select(number, letters) %>% 
-  count(letters, sort = T)
-```
-
-Can be dropped for sure.
 
 <br>
 
@@ -497,7 +470,7 @@ The recipe in the *tidymodels* framework makes it very straightforward to includ
 ```{r class.source = 'fold-show'}
 gb_rec <- recipe(churn ~ .,
                  data = dt_train) %>%
-  step_rm(customer_id) %>%
+  step_rm(customer_id) %>% 
   step_novel(all_nominal_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>% 
   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
@@ -506,7 +479,7 @@ gb_rec <- recipe(churn ~ .,
 
 lin_rec <- recipe(churn ~ .,
                   data = dt_train) %>%
-  step_rm(customer_id) %>%
+  step_rm(customer_id) %>% 
   step_novel(all_nominal_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>% 
   step_dummy(all_nominal_predictors()) %>% 
@@ -886,7 +859,7 @@ svm_nonlin_final_fit <- svm_nonlin_wflow %>%
 gb_final_fit <- readRDS("gb_final_fit.rds")
 knn_final_fit <- readRDS("knn_final_fit.rds")
 rf_final_fit <- readRDS("rf_final_fit.rds")
-log_final_fit <- readRDS("log_final_fit.rds")
+# log_final_fit <- readRDS("log_final_fit.rds")
 log_final_fit <- log_wflow %>%
   finalize_workflow(select_best(log_tune, metric = "roc_auc")) %>%
   last_fit(dt_split)

@@ -51,7 +51,7 @@ knitr::include_graphics("Graphics/2000px-Universitaet-st-gallen.svg.png")
 \Large
 
 \doublespacing
-{\bf TBD: Modelling this and that}
+{\bf CAIML Group Project:\\Maximising TelCo Company Profits With Customer Churn Models}
 
 \vspace{1 cm}
 
@@ -69,7 +69,7 @@ By
 
 \normalsize
 
-{\bf Matriculation N°:} / / 19-608-512 /
+{\bf Matriculation N°:} 16-611-485 / 22-602-593 / 19-608-512 / 22-621-452
 
 {\bf Course:} Concepts, Applications, and Implications in Machine Learning and Artificial Intelligence
 
@@ -81,7 +81,7 @@ By
 
 \end{centering}
 
-\spacing{1.5}
+\spacing{1.15}
 
 <!-- Table of Contents -->
 <!-- Table of Contents -->
@@ -119,5 +119,3 @@ By
 
 ```{r biblio, child = 'bibliography.rmd'}
 ```
-
-
