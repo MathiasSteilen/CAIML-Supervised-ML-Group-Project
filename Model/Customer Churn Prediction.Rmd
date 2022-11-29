@@ -504,7 +504,7 @@ Setting up the model specifications with tuning options for hyperparameters:
 ```{r class.source = 'fold-show'}
 gb_spec <- 
   boost_tree(
-    trees = 1000,
+    trees = tune(),
     tree_depth = tune(),
     min_n = tune(),
     loss_reduction = tune(),
@@ -515,7 +515,7 @@ gb_spec <-
   set_engine("xgboost", importance = "impurity") %>%
   set_mode("classification")
 
-knn_spec <- nearest_neighbor(neighbors = tune()) %>% 
+knn_spec <- nearest_neighbor(neighbors = tune(), weight_func = "gaussian") %>% 
   set_engine("kknn") %>% 
   set_mode("classification")
 
@@ -598,7 +598,6 @@ eval_metrics <- metric_set(roc_auc, accuracy, sensitivity, specificity,
 ```
 
 ```{r class.source = 'fold-show', cache=TRUE, eval=FALSE}
-
 # Gradient Boosting
 set.seed(1)
 start_time = Sys.time()
@@ -613,8 +612,8 @@ registerDoParallel(cl)
 
 gb_tune <- tune_grid(object = gb_wflow,
                      resamples = folds,
-                     grid = grid_latin_hypercube(tree_depth(), min_n(), 
-                                                 loss_reduction(), 
+                     grid = grid_latin_hypercube(trees(), tree_depth(), 
+                                                 min_n(), loss_reduction(), 
                                                  sample_size = sample_prop(),
                                                  finalize(mtry(), dt_train),
                                                  learn_rate(), size = 100),
@@ -918,7 +917,7 @@ log_final_fit %>%
         legend.position = "bottom")
 ```
 
-ROC Curves: KNN makes no sense
+ROC Curves:
 
 ```{r}
 tibble(
@@ -1017,7 +1016,7 @@ blended_model_fit <- stacks() %>%
 ```
 
 ```{r}
-saveRDS(blended_model_fit, "blended_model_fit.rds")
+# saveRDS(blended_model_fit, "blended_model_fit.rds")
 ```
 
 ```{r}
