@@ -172,7 +172,13 @@ A general note on dimensionality reduction: Given that there are only 19 predict
 
 ## Splits
 
-The first step in our modelling approach is creating the splits based on stratified sampling with a $\frac{n_{train}}{n_{total}} = 75\%$ ratio. Additionally, 5-fold stratified cross validation was employed for hyperparameter tuning the various models, where the same 5 folds are given to all models.
+The first step in our modelling approach is creating the splits based on stratified sampling with a $\frac{n_{train}}{n_{total}} = 75\%$ ratio. 
+When classifying a dataset with imbalanced classes, stratified resampling is generally a good idea  (Kohavi et al., 1995, p. 7).
+
+Additionally, 5-fold stratified cross validation was employed for hyperparameter tuning the various models, where the same 5 folds are given to all models.
+Setting churn as the stratification variable will keep the proportion of churning and not churning customers in each training set equal to the proportion in the complete dataset.
+
+Citation: Kohavi, R. (1995, August). A study of cross-validation and bootstrap for accuracy estimation and model selection. In Ijcai (Vol. 14, No. 2, pp. 1137-1145).
 
 TBD Tobias: Citation on why stratified sampling is better?
 
