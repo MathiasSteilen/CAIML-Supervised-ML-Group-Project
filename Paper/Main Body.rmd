@@ -41,6 +41,8 @@ theme_set(theme_bw() +
 - Directly affects the bottom line of a company (that is profits)
 - Especially important in competitive industries like TelCo with price competition
 
+The fierce competition in the telecom industry leads companies to increasingly switch from having the product at the core to having the customer at the core (customer churn 2) For a telecom company retaining an unsatisfied customer is about 6 to 7 times cheaper than attracting a new one (customer churn 1 citation 5) To effectively target the unsatisfied customers and convert them into loyal ones, a reliable prediction model is necessary. Machine learning models seem to be ideal as they continuously learn from new data and thus detect newly emerging patterns and consumer trends. (customer churn 1, citation 8) In a first step, several models are created to calculate the churning probability for each customer. The churn probability is the likelihood that a customer no longer buys the company’s products or services. (customer churn 2) In a second step, the direct impact of applying the model on the company’s bottom line is calculated. Finally, the models are being compared and the optimal model selected depending on the application scenario.
+
 # Packages and Data
 
 ## Packages
