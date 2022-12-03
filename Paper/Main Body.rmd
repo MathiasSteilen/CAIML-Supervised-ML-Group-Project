@@ -34,35 +34,25 @@ theme_set(theme_bw() +
 
 # Why is it useful to predict customer churn?
 
-**TBD: Tobias**
-
-(_Comment_) Notes what I think should be mentioned in this section, feel free to mention what you think is important as well:
-- Customer churn -> target customers that want to leave and retain them -> often less costly than marketing efforts to gain new clients (find quote online that said something about 9x more expensive or something)
-- Directly affects the bottom line of a company (that is profits)
-- Especially important in competitive industries like TelCo with price competition
-
-The fierce competition in the telecom industry leads companies to increasingly switch from having the product at the core to having the customer at the core \citep [p.~2] {zhao2021prediction } For a telecom company retaining an unsatisfied customer is about 6 to 7 times cheaper than attracting a new one \citep [p.~1] { karanovic2018telecommunication }. To effectively target the unsatisfied customers and convert them into loyal ones, a reliable prediction model is necessary. Machine learning models seem to be ideal as they continuously learn from new data and thus detect newly emerging patterns and consumer trends. \citep [p.~4284] { karanovic2018telecommunication }. In a first step, several models are created to calculate the churning probability for each customer. The churn probability is the likelihood that a customer no longer buys the company’s products or services. \citep [p.~553] {ahn2006customer } In a second step, the direct impact of applying the model on the company’s bottom line is computed. Finally, the models are being compared and the optimal model selected depending on the application scenario.
+The fierce competition in the telecom industry leads companies to increasingly switch from having the product at the core to having the customer at the core \citep[p.~2]{zhao2021prediction}, as retaining a dissatisfied customer is about 6 to 7 times cheaper than attracting a new one \citep [p.~1]{karanovic2018telecommunication}. To effectively target the dissatisfied customers and convert them into loyal ones, a reliable prediction model is necessary. Machine learning models seem to be ideal as they continuously learn from new data and thus detect newly emerging patterns and consumer trends \citep [p.~4284] {karanovic2018telecommunication}. In a first step, several models are created to calculate the churning probability for each customer. The churn probability is the likelihood that a customer no longer buys the company’s products or services \citep[p.~553]{ahn2006customer}. In a second step, the direct impact of applying the model on the company’s bottom line is computed. Finally, the models are being compared and the optimal model selected depending on the application scenario.
 
 # Packages and Data
 
 ## Packages
 
-The packages used for this project include `Tidymodels` for modelling; `Tidyverse` and `Broom` for data wrangling; `doParallel` for parallelisation of hyperparameter tuning; `vip` for variable importance plots; `stacks` for creating linearly stacked model; `themis` for dealing with class imbalance. Smaller, less relevant packages not directly tied to model output and evaluation were not separately listed. This final paper was written in `RMarkdown` and compiled using `knitr` and `tinytex`.
+The packages used for this project include: `Tidymodels` for modelling; `Tidyverse` and `Broom` for data wrangling; `doParallel` for parallelisation of hyperparameter tuning; `vip` for variable importance plots; `stacks` for creating a linearly stacked model; `themis` for dealing with class imbalance. Smaller, less relevant packages not directly tied to model output and evaluation were not separately listed. This final paper was written in `RMarkdown` and compiled using `knitr` and `tinytex`.
 
 ## Data
 
 TBD: Tobias
 
 (_Comment_) Can you go into detail where the data came from? Links: 
-Data Source: [Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn)
-More Info from IBM: [IBM](https://community.ibm.com/community/user/businessanalytics/blogs/steven-macko/2019/07/11/telco-customer-churn-1113)
+Data Source: 
+More Info from IBM: 
 
 
 
-The Telco customer churn dataset was retrieved from Kaggle and was originally posted to predict customer behaviour and thus to improve the companies ability to retain them \citep { blastchar_2018}. The dataset contains information about a fictional telcom company that provided home phone and Internet services to 7043 customers in California in Q3 \citep {telco customer churn (11.1.3+)}. Due to the fictional nature of the dataset, we expect that IBM was mindful of potential biases and that the number of significant biases will thus most likely be limited. The dataset does not contain any time variable and all the datapoints are from a fictional third quarter. Hence, seasonality is not expected to play any meaningful role and will be neglected.
-
-
-
+The Telco customer churn dataset was retrieved from [Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn) and was originally posted in a data science challenge by [IBM](https://community.ibm.com/community/user/businessanalytics/blogs/steven-macko/2019/07/11/telco-customer-churn-1113) to predict customer behaviour and thus help improve the companies ability to retain them \citep{blastchar_2018}. The dataset contains information about a fictional telecommunications company that provided home phone and Internet services to 7043 customers in California in Q3 \citep{telco}. Due to the fictional nature of the dataset, we expect that IBM was mindful of potential biases and that the number of significant biases will thus most likely be limited. The dataset does not contain a time variable and all observations are from a fictional third quarter. Hence, seasonality is not expected to play any meaningful role and will be neglected.
 
 Before the modelling process begins, certain steps have to be taken: Firstly, most dummies are encoded as categorical predictors, so the ones that are still encoded as binary variables are made consistent upon reading of the data. Additionally, there was one unnecessary level "No internet service" in six of the categorical dummy variables, which was changed to "No", as a one hot encoding of these variables would lead to perfect collinearity with the existing variable `internet_service` and is redundant. Additionally, character columns are converted to factors, as `Tidymodels` often requires factor columns, for instance for evaluation metric computation. The last step is removing missing variables, as there is only one variable with around 0.15% missingness. Given the absolute size of data, this is negligible and does not warrant imputation and extensive reasoning on the type of missingness, therefore it is just dropped. Importantly, none of the above steps lead to data leakage, as no metrics are computed on the aggregate data set and the shape and content of the data is not (negligibly) impacted by the operations.
 
@@ -86,9 +76,7 @@ data <- read_csv("../Model/Telco_Churn_Data.csv") %>%
 
 Having introduced the origin of the data, the purpose of our modelling task and the initial preprocessing, we now turn to a short section on exploratory data analysis (EDA). Given the size limit for this paper, we limit our EDA to looking at both distributions and relations of nominal and numeric variables with the target variable in four plots.
 
-\autoref{NominalCounts} shows the variable counts for all nominal variables, including the target variable. Notably, there is a considerable class imbalance in the target variable `churn`. In the preprocessing process, we use the Synthetic Minority Over-sampling Technique (SMOTE) \citep{chawla2002smote} which relies on creating new samples through k-nearest neighbours in the feature space to deal with this problem. `Tidymodels` provides great support for simple integration into the preprocessing pipeline with the `themis` package \citep{ThemisSmote}.
-
-TBD: Potentially go into why oversampling is necessary here: Models being biased towards majority class (cite paper?)
+\autoref{NominalCounts} shows the variable counts for all nominal variables, including the target variable. Notably, there is a considerable class imbalance in the target variable `churn`. In the preprocessing process, we use the Synthetic Minority Over-sampling Technique (SMOTE) \citep{chawla2002smote} which relies on creating new samples through k-nearest neighbours in the feature space to deal with this problem. `Tidymodels` provides great support for simple integration into the preprocessing pipeline with the `themis` package \citep{ThemisSmote}. Similarly, \autoref{NumericDist} shows the distribution of numerical features. It can be observed that monthly charges almost has a bimodal distribution, whereas tenure and total charges are mostly decreasing in time, which is likely a by-product of company growth, though tenure has a peak at its maximum value, which are clients that have been with the company since inception.
 
 ```{r, echo=FALSE, out.width="100%", fig.height=4, fig.cap="\\label{NominalCounts}Counts of nominal variables", fig.align='center', message=FALSE, warning=FALSE}
 data %>% 
@@ -110,8 +98,6 @@ data %>%
         axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 ```
 
-Similarly, \autoref{NumericDist} shows the distribution of numerical features. It can be observed that monthly charges almost has a bimodal distribution, whereas tenure and total charges are mostly decreasing in time, which is likely a by-product of company growth, though tenure has a peak at its maximum value, which are clients that have been with the company since inception.
-
 ```{r, echo=FALSE, out.width="100%", fig.height=2, fig.cap="\\label{NumericDist}Distribution of numerical variables", fig.align='center', message=FALSE, warning=FALSE}
 data %>% 
   select(where(is.numeric)) %>% 
@@ -126,7 +112,7 @@ data %>%
         axis.text = element_text(size = 8))
 ```
 
-Next, the relationship of the predictors with the target variable `churn` is depicted in \autoref{NominalTarget} and \autoref{NumericTarget}. Note that the variable of customer IDs has been left out, as it is a randomly generated categorical value with $n$ levels, hence bearing no predictive power by definition. For the nominal variables, churn rates were computed for each level in each of the most important variables, which are shown in \autoref{NominalTarget}. The main insights that EDA gives us here, is that customers with month-to-month contracts, which have no dependents, fastest internet service and electronic checks, as well as no additional support or security services are most likely to churn. These are likely signs of young, single customers like students or young adults that are highly price sensitive and more prone to changing providers due to their familiarity with technology. In contrast, customers that have no internet service and are generally more conservative, i.e. showing signs of being older, are less likely to change providers.
+Next, the relationship of the predictors with the target variable `churn` is depicted in \autoref{NominalTarget} and \autoref{NumericTarget}. Note that the variable `customer_id` has been left out, as it is a randomly generated categorical value with $n$ levels, hence bearing no predictive power by definition. For the nominal variables, churn rates were computed for each level in each of the most important variables, which are shown in \autoref{NominalTarget}. The main insights that EDA gives us here, is that customers with month-to-month contracts, which have no dependents, fastest internet service and electronic checks, as well as no additional support or security services are most likely to churn. These are likely signs of young, single customers like students or young adults that are highly price sensitive and more prone to changing providers due to their familiarity with technology. In contrast, customers that have no internet service and are generally more conservative, i.e. showing signs of being older, are less likely to change providers.
 
 ```{r, echo=FALSE, out.width="100%", fig.height=3, fig.cap="\\label{NominalTarget}Churn Rates for different levels of nominal predictors", fig.align='center', message=FALSE, warning=FALSE}
 data %>% 
@@ -149,7 +135,7 @@ data %>%
         axis.text = element_text(size = 8))
 ```
 
-\autoref{NumericTarget} shows the distribution of numeric predictors and the target variable in scatter plots. The float variables monthly charges and total charges have been summarised into bins and average churn rates were calculated on them. Tenure, as an integer variable, did not require this transformation. For tenure and total changes, there is a clear negative relationship with the target. The latter is likely highly correlated with tenure, as monthly subscription models lead to linear growth of total charges in time. Monthly charges does not reveal a linear relationship: In general, it looks like there is an positive relationship, but there are exceptions at 60 USD and beyond 100 USD. Clearly, for this variable, there will be a benefit of using more flexible methods over a logistic regression for instance.
+\autoref{NumericTarget} shows the distribution of numeric predictors and the target variable in scatter plots. The float variables monthly charges and total charges have been summarised into bins and average churn rates were calculated on them. Tenure, as an integer variable, did not require this transformation. For tenure and total changes, there is a clear negative relationship with the target. The latter is likely highly correlated with tenure, as monthly subscription models lead to linear growth of total charges in time. Monthly charges does not reveal a linear relationship: In general, it looks like there is a positive relationship, but there are exceptions at 60 USD and beyond 100 USD. Potentially, for this variable, there will be a marginal benefit of allowing for more flexible methods over a logistic regression for instance.
 
 ```{r, echo=FALSE, out.width="100%", fig.height=2.5, fig.cap="\\label{NumericTarget}Churn rates associated with binned numeric predictors", fig.align='center', message=FALSE, warning=FALSE}
 data %>% 
@@ -180,15 +166,8 @@ A general note on dimensionality reduction: Given that there are only 19 predict
 # Creating The Models
 
 ## Splits
-When classifying a dataset with imbalanced classes, stratified resampling is generally a good idea  \citep [p.~7] {kohavi1995study}. Setting churn as the stratification variable will keep the proportion of churning and not churning customers in each training set equal to the proportion in the complete dataset. The first step in our modelling approach is creating the splits based on stratified sampling with a $\frac{n_{train}}{n_{total}} = 75\%$ ratio.Additionally, 5-fold stratified cross validation was employed for hyperparameter tuning the various models, where the same 5 folds are given to all models.
 
-
-
-
-
-
-
-TBD Tobias: Citation on why stratified sampling is better?
+When classifying a dataset with imbalanced classes, stratified resampling is generally a good idea \citep[p.~7]{kohavi1995study}. Setting churn as the stratification variable will keep the proportion of churning and not churning customers in each training set equal to the proportion in the complete dataset. Therefore, the first step in our modelling approach is to create the splits based on stratified sampling with a $\frac{n_{train}}{n_{total}} = 75\%$ ratio. Note that any other ratio which allows for the trade off between having enough training data and being confident about your out-of-sample performance estimates would be fine. As we have more than 7,000 observations, going with a 3 to 1 ratio seems reasonable. Additionally, 5-fold stratified cross validation was employed for hyperparameter tuning the various models, where, importantly, the same 5 folds are given to all models to allow for consistent estimation. Additionally, the 5-fold cross validation allows for better estimation of our performance metrics, which might potentially have higher variance.
 
 ```{r, echo=FALSE, message=FALSE, results="hide"}
 set.seed(1)
@@ -206,37 +185,37 @@ folds <- vfold_cv(dt_train, v = 5, strata = churn)
 
 ## Data Preprocessing
 
-At this stage, the strength of `Tidymodels` fully shines through: With the `recipes` package, a single preprocessing pipeline can be specified with `R`'s formula notation and `dplyr`'s pipes. This pipeline will be executed upon hyperparameter tuning and model training on each fold and each split respectively and uniformly. This makes it very hard to commit preprocessing errors leading to data leakage, like not imputing separately on training and testing data.
+At this stage, the strength of `Tidymodels` fully shines through: With the `recipes` package, a single preprocessing pipeline can be specified with `R`'s formula notation and `dplyr`'s pipes. This pipeline will be executed upon hyperparameter tuning and model training on each fold and each split respectively and uniformly. This makes it very hard to commit preprocessing errors leading to data leakage, like not imputing missing values separately on training and testing data would.
 
 ```
 recipe(churn ~ ., data = training(split)) %>%
-step_rm(customer_id) %>% 
-step_novel(all_nominal_predictors()) %>%
-step_normalize(all_numeric_predictors()) %>% 
-step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
-step_zv(all_predictors()) %>% 
-step_smote(churn, skip = TRUE)
+  step_rm(customer_id) %>% 
+  step_novel(all_nominal_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>% 
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+  step_zv(all_predictors()) %>% 
+  step_smote(churn, skip = TRUE)
 ```
 
 Going into detail for the preprocessing steps that have been taken: As a first step, the irrelevant customer IDs are removed. Next, we are allowing for previously unseen factor levels with `step_novel()`. Normalising the predictors allows for relative variable importance calculation without the inflationary effect of higher mean numeric variables, but is generally not necessary for the tree-based learners. However, as we will also be using other methods like kNN and support vector machines, which require normalisation, having it in the general recipe is the best option and does no harm to the models that do not require it. Next, all nominal predictors are one-hot encoded. Note that the linear models, that is logistic regression and SVMs with linear kernels have issues with multicollinearity, so these are dummy-encoded, i.e. leaving out a factor level. Additionally, a zero variance variable filter is applied, which removes zero variance predictors, though there should not be any in these data, after having inspected it in the EDA section. Lastly, the target variable is upsampled using the SMOTE algorithm, as mentioned previously.
 
 ## Model Specifications
 
-As our goal is to predict customer churn as best as possible, we not only want to test configurations of any single model, but test multiple models and compare performances. This section will shortly go into each model, how it works, what needs to be taken care of and which hyperparameters were tuned. Notably, at this stage, `parsnip` allows us to use the same syntax for specifying each model, independe_nt of the underlying package. The detailed description can be found _[here](https://parsnip.tidymodels.org/)_. Hence, for all our six different models, we can use the following syntax:
+As our goal is to predict customer churn as best as possible, we not only want to test configurations of any single model, but test multiple models and compare performances. This section will shortly go into each model, how it works, what needs to be taken care of and which hyperparameters were tuned. Notably, at this stage, `parsnip` allows us to use the same syntax for specifying each model, independent of the underlying package. The detailed description can be found _[here](https://parsnip.tidymodels.org/)_. Hence, for all our six different models, instead of using the idiosyncratic syntax of each package, we can use the unified syntax of tidymodels:
 
 ```
 specification <- model(parameters = ...) %>% 
-set_engine("package") %>% 
-set_mode("classification")
+  set_engine("package") %>% 
+  set_mode("classification")
 ```
 
 ### Gradient Boosting
 
-The gradient boosting relies on the `xgboost` package, which allows for the tuning of the number of trees (`trees`), the tree depth (`tree_depth`), the minimum number of observations in a node required for the node to be split further (`min_n`), the number for the reduction in the loss function required to split further (`loss_reduction`), the number of observations that is exposed to the fitting routine (`sample_size`), the number of predictors that will be randomly sampled at each split when creating the tree models (`mtry`) and the rate at which the boosting algorithm adapts from iteration-to-iteration (`learn_rate`).
+The gradient boosting relies on the `xgboost` package, which allows for the tuning of the number of trees (`trees`), the tree depth (`tree_depth`), the minimum number of observations in a node required for the node to be split further (`min_n`), the number for the reduction in the loss function required to split further (`loss_reduction`), the number of observations that is exposed to the fitting routine (`sample_size`), the number of predictors that will be randomly sampled at each split when creating the tree models (`mtry`) and the rate at which the boosting algorithm adapts from iteration to iteration (`learn_rate`).
 
 ### K-Nearest Neighbours
 
-The kNN algorithm relies on the k-nearest neighbours in the feature space and generates a weighted prediction based on the weighting method, which can also be called the kernel. In `parsnip`, the engine package is `kknn` and only one hyperparameter can be tuned, namely the number $k$ neighbours. For this application, we are going with a Gaussian weight function, which was superior to the equally weighted rectangular weight function on the holdout data.
+The kNN algorithm relies on the k-nearest neighbours in the feature space and generates a weighted prediction based on the weighting method, which can also be called the kernel. In `parsnip`, the engine package is `kknn` and only one hyperparameter can be tuned, namely the number $k$ neighbours. For this application, we are going with a Gaussian weight function, which prevailed over the equally weighted rectangular weight function on the holdout data.
 
 ### Random Forest
 
@@ -244,7 +223,7 @@ Our implementation of the random forest algorithm relies on the `ranger` package
 
 ### Logistic Regression
 
-The implementation of the logistic regression with the `glmnet` engine allows for two tunable hyperparameters of the number between zero and one (inclusive) giving the proportion of L1 regularization (i.e. lasso) in the model (`mixture`) and the regularisation parameter (`penalty`). Notably, we're using Ridge and Lasso regularisation in order to increase the ability of our model to generalise to out-of-sample observations. As we are tuning both parameters, it remains to be seen, whether regularisation actually benefits the model performance, or whether best performance comes from a standard logistic regression model.
+The implementation of the logistic regression with the `glmnet` engine allows for two tunable hyperparameters of the number between zero and one (inclusive) giving the proportion of L1 regularization (i.e. lasso) in the model (`mixture`) and the regularisation parameter (`penalty`). Notably, we are using Ridge and Lasso regularisation in order to increase the ability of our model to generalise to out-of-sample observations. As we are tuning both parameters, it remains to be seen, whether regularisation actually benefits the model performance, or whether best performance comes from a standard logistic regression model. We are not limiting ourselves to either one, but judge from the hyperparameter tuning results instead.
 
 ### Support Vector Machines
 
@@ -373,7 +352,7 @@ svm_lin_tune <- readRDS("../Model/svm_lin_tune.rds")
 svm_nonlin_tune <- readRDS("../Model/svm_nonlin_tune.rds")
 ```
 
-The evaluation metrics we have chosen to look at are _accuracy_, _roc_auc_, _precision_, _recall_, _sensitivity_ and _specificity_. \autoref{TuningResults} presents the tuning results visually. Each dot is one cross validated metric mean for one hyperparameter combination for a given model. The point clouds are sorted in descending order by their median value to be able to compare the general trend of each model given each metric better.
+The evaluation metrics we have chosen to look at are _accuracy_, _roc_auc_, _precision_, _recall_, _sensitivity_ and _specificity_. \autoref{TuningResults} presents the tuning results visually. Each dot is one cross validated metric mean for one hyperparameter combination for a given model. There is a different number of points for each model, as only 10 hyperparameter combinations were tuned for kNN and 100 for gradient boosting, for instance. The reason for the latter is that there is only one hyperparameter for kNN, and often many neighbours do not yield better results. The point clouds are sorted in descending order by their median value to be able to compare the general trend of each model given each metric better.
 
 TBD Findings:
 - Tree based ensembles best accuracy, but RF has terrible sensitivity, but high precision, hence is a little conservative on predicting that a customer is going to leave
