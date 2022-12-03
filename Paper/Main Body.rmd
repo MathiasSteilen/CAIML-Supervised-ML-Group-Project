@@ -44,14 +44,6 @@ The packages used for this project include: `Tidymodels` for modelling; `Tidyver
 
 ## Data
 
-TBD: Tobias
-
-(_Comment_) Can you go into detail where the data came from? Links: 
-Data Source: 
-More Info from IBM: 
-
-
-
 The Telco customer churn dataset was retrieved from [Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn) and was originally posted in a data science challenge by [IBM](https://community.ibm.com/community/user/businessanalytics/blogs/steven-macko/2019/07/11/telco-customer-churn-1113) to predict customer behaviour and thus help improve the companies ability to retain them \citep{blastchar_2018}. The dataset contains information about a fictional telecommunications company that provided home phone and Internet services to 7043 customers in California in Q3 \citep{telco}. Due to the fictional nature of the dataset, we expect that IBM was mindful of potential biases and that the number of significant biases will thus most likely be limited. The dataset does not contain a time variable and all observations are from a fictional third quarter. Hence, seasonality is not expected to play any meaningful role and will be neglected.
 
 Before the modelling process begins, certain steps have to be taken: Firstly, most dummies are encoded as categorical predictors, so the ones that are still encoded as binary variables are made consistent upon reading of the data. Additionally, there was one unnecessary level "No internet service" in six of the categorical dummy variables, which was changed to "No", as a one hot encoding of these variables would lead to perfect collinearity with the existing variable `internet_service` and is redundant. Additionally, character columns are converted to factors, as `Tidymodels` often requires factor columns, for instance for evaluation metric computation. The last step is removing missing variables, as there is only one variable with around 0.15% missingness. Given the absolute size of data, this is negligible and does not warrant imputation and extensive reasoning on the type of missingness, therefore it is just dropped. Importantly, none of the above steps lead to data leakage, as no metrics are computed on the aggregate data set and the shape and content of the data is not (negligibly) impacted by the operations.
@@ -341,7 +333,7 @@ eval_metrics <- metric_set(accuracy, sensitivity, specificity,
 
 ## Hyperparameter Tuning
 
-For the hyperparameter tuning of the six different models, there are several points to address. Starting with the cross validation, the `tune_grid()` function in `tune` package enables us to fit every hyperparameter combination five times, once on each fold and compute cross validated performance metrics. Performance metrics can be specified using a `metric_set()` function from the `yardstick` package, which allows for computation of all desired performance metrics in one function call. The results returned from each tuning object are the cross validated performance metrics, which then enables us to analyse dependency of model performance on hyperparameters. One additional tool used for hyperparameter tuning is the `doParallel` package, which enables us to use any number of cores on our CPU, greatly improving tuning speed over just using one core. Regarding the actual hyperparameters, all models have been tuned with hyperparameter combinations from a space-filling design, specifically a latin hypercube, which enables us to cover the space of possible hyperparameter combinations optimally. The number of combinations are $n = \{100,10,50,50,30,30\}$ in the order as presented in the model specification section above.
+For the hyperparameter tuning of the six different models, there are several points to address. Starting with the cross validation, the `tune_grid()` function in `tune` package enables us to fit every hyperparameter combination five times, once on each fold and compute cross validated performance metrics. Performance metrics can be specified using a `metric_set()` function from the `yardstick` package, which allows for computation of all desired performance metrics in one function call. The results returned from each tuning object are the cross validated performance metrics, which then enables us to analyse dependency of model performance on hyperparameters. One additional tool used for hyperparameter tuning is the `doParallel` package, which enables us to use any number of cores on our CPU, greatly improving tuning speed over just using one core. Regarding the actual hyperparameters, all models have been tuned with hyperparameter combinations from a space-filling design, specifically a latin hypercube, which enables us to cover the space of possible hyperparameter combinations optimally. The number of combinations are $n = \{100,21,50,50,30,30\}$ in the order as presented in the model specification section above.
 
 ```{r}
 gb_tune <- readRDS("../Model/gb_tune.rds")
@@ -352,13 +344,7 @@ svm_lin_tune <- readRDS("../Model/svm_lin_tune.rds")
 svm_nonlin_tune <- readRDS("../Model/svm_nonlin_tune.rds")
 ```
 
-The evaluation metrics we have chosen to look at are _accuracy_, _roc_auc_, _precision_, _recall_, _sensitivity_ and _specificity_. \autoref{TuningResults} presents the tuning results visually. Each dot is one cross validated metric mean for one hyperparameter combination for a given model. There is a different number of points for each model, as only 10 hyperparameter combinations were tuned for kNN and 100 for gradient boosting, for instance. The reason for the latter is that there is only one hyperparameter for kNN, and often many neighbours do not yield better results. The point clouds are sorted in descending order by their median value to be able to compare the general trend of each model given each metric better.
-
-TBD Findings:
-- Tree based ensembles best accuracy, but RF has terrible sensitivity, but high precision, hence is a little conservative on predicting that a customer is going to leave
-- SVM RBF is best for recall, but worst for precision, which is because it is best for sensitivity, but worst for specificity, i.e. it is too trigger happy -> predicting customer is going to leave way too often
-- KNN looks overall disappointing across the board, also lowest ROC AUC
-- Logistic Regression looking very promising with midfield for all metrics, but very high ROC AUC
+The evaluation metrics we have chosen to look at are _accuracy_, _roc_auc_, _precision_, _recall_, _sensitivity_ and _specificity_. \autoref{TuningResults} presents the tuning results visually. Each dot is one cross validated metric mean for one hyperparameter combination for a given model. There is a different number of points for each model, as only 21 hyperparameter combinations were tuned for kNN and 100 for gradient boosting, for instance. The reason for the latter is that there is only one hyperparameter for kNN, and often many neighbours do not yield better results. The point clouds are sorted in descending order by their median value to be able to compare the general trend of each model given each metric better. Generally, the tree-based ensembles show highest accuracy, but random forests show low sensitivity. Couples with its high precision, but comparatively low recall, we can deduct that it is a little conservative on predicting that a customer is going to leave. Furthermore, the non-linear SVM has highest recall, but lowest precision. Looking at the sensitivity (high) and specificity (low), it becomes clear that it is a very trigger happy in predicting a customer to churn. kNN looks disappointing across the board, also with regard to ROC AUC. Surprisingly, logistic regression holds up very well, landing in midfield for most metrics, placing it very high on ROC AUC.
 
 ```{r, echo=FALSE, out.width="100%", fig.height=3, fig.cap="\\label{TuningResults}Hyperparameter tuning results for various evaluation metrics", fig.align='center', message=FALSE, warning=FALSE}
 bind_rows(
@@ -423,14 +409,7 @@ svm_lin_final_fit <- readRDS("../Model/svm_lin_final_fit.rds")
 svm_nonlin_final_fit <- readRDS("../Model/svm_nonlin_final_fit.rds")
 ```
 
-Firstly, we make predictions with all models on the holdout data and compute the same number of evaluation metrics with the previously initialised metric set. This time, we do not fit on the cross validation folds, but make predictions once on the holdout data, therefore we will receive one number for each model and each metric. Alternatively, we might also have a look at the confusion matrices, but as we have calculated all interesting metrics based on exactly these, it will be redundand at this point.
-
-TBD Evaluate Metrics:
-- Looking at accuracy alone: blended model seems to have worked, however, looking at sensitivity and recall, it looks like the model is just way too conservative and always predicting the customer is not going to leave
-- GB has highest ROC AUC, also a great tradeoff between sensitivity and specificity, which makes sense from the business tradeoff perspective again
-- the SVM models are a little trigger happy, low precision, but high sensitivity
-- logistic regression, surprisingly, also very very good, almost as good as grdient boosting, even slightly better on sensitivity, which might be useful, also much more interpretable, strong competitor!
-- generally: precision lower than recall, might be smart to dial up the classification threshold, if we need different ratio for profit maximisation
+Firstly, we make predictions with all models on the holdout data and compute the same number of evaluation metrics with the previously initialised metric set. This time, we do not fit on the cross validation folds, but make predictions once on the holdout data, therefore we will receive one number for each model and each metric. Alternatively, we might also have a look at the confusion matrices, but as we have calculated all interesting metrics based on exactly these, it will be redundant at this point. Looking at accuracy alone, the blended model seems to have worked best. However, looking at sensitivity and recall, it looks like the model is just way too conservative and always predicting the customer not to leave. Gradient boosting has a great trade off between sensitivity and specificity, also indicated by the highest ROC AUC. Both SVM models are a little too trigger happy, as they have high sensitivity and low precision, but low specificity and high recall. Logistic regression, surprisingly, almost sees eye to eye with gradient boosting. Given its explainability compared to the tree-ensemble, this makes it a great candidate. Generally, precision is lower than recall for all models. If we are interested in having balanced models, as we want to avoid both FP and FN cases, it might be smart to investigate the effects of changing the classification thresholds. At this stage, we hold out on final conclusions, as we want to look at the performance of the models in the business context first.
 
 ```{r, echo=FALSE, out.width="100%", fig.height=3.5, fig.cap="\\label{OOSperformance}Out-of-sample performance metrics from predicting on the testing set", fig.align='center', message=FALSE, warning=FALSE}
 oos_evaluation_metrics <- bind_cols(blended_model_fit %>% 
@@ -507,12 +486,13 @@ oos_evaluation_metrics %>%
        x = "Estimate",
        y = "Model") +
   facet_wrap(~ metric, scales = "free_y") +
-  scale_y_reordered()
+  scale_y_reordered() +
+  theme(axis.text = element_text(size = 8))
 ```
 
-Another tool to evaluate the performance is ROC AUC curves, as seen in \autoref{RocAucCurve}, though it is rather visual. It shows the behaviour of models when varying the classification thresholds. Generally, the higher the curve lies towards the upper left corner, the better the model. If one curve is strictly to the left of the others, the model is strictly superior. In this particular case, the kNN model is visibly worse than all others, but it is hard to distinguish the other ones.
+Another tool to evaluate the performance is ROC AUC curves, as seen in \autoref{RocAucCurve}, though it is rather visual. It shows the behaviour of models when varying the classification thresholds. Generally, the higher the curve lies towards the upper left corner, the better the model. If one curve is strictly to the left of the others, the model is strictly superior. In this particular case, the kNN model is visibly worse than all others, but it is hard to distinguish the other ones from each other.
 
-```{r, echo=FALSE, out.width="100%", fig.height=2.5, fig.cap="\\label{RocAucCurve}Area under the ROC Curve for all models", fig.align='center', message=FALSE, warning=FALSE}
+```{r, echo=FALSE, out.width="100%", fig.height=3.5, fig.cap="\\label{RocAucCurve}Area under the ROC Curve for all models", fig.align='center', message=FALSE, warning=FALSE}
 tibble(
   trained = list(gb_final_fit, knn_final_fit, rf_final_fit, log_final_fit,
                  svm_lin_final_fit, svm_nonlin_final_fit),
@@ -531,12 +511,13 @@ tibble(
        y = "True Positive Rate",
        x = "False Positive Rate") +
   ggsci::scale_colour_jama() +
-  coord_equal()
+  coord_equal() +
+  theme(axis.title = element_text(size = 8))
 ```
 
 At this stage, we could look at the variable importance of our two best models: gradient boosting and logistic regression. As the latter might suffer from collinearity and omitted variable bias though, we will not show the directional effect, but only the absolute importance of the metrics. We want to stress that we are not doing inference, hence the level of these metrics should not be important, as long as the regression model generalises well to out-of-sample data, which is all we care about. The variable importance for the gradient boosting model was calculated based on Gini impurity, which measures how well the impurity of child nodes in a decision tree is reduced by using the variable as the split variable at this given split. \autoref{VarImp} shows that both models have comparable variables in their top 5.
 
-```{r, echo=FALSE, out.width="100%", fig.height=3, fig.cap="\\label{VarImp}Variable importance for random forest model", fig.align='center', message=FALSE, warning=FALSE}
+```{r, echo=FALSE, out.width="100%", fig.height=2.5, fig.cap="\\label{VarImp}Variable importance for random forest model", fig.align='center', message=FALSE, warning=FALSE}
 bind_rows(
   gb_final_fit %>%
     extract_workflow() %>% 
@@ -562,12 +543,13 @@ bind_rows(
        x = NULL) +
   scale_y_reordered() +
   theme(plot.title.position = "plot",
-        axis.text = element_text(size = 8))
+        axis.text = element_text(size = 7),
+        axis.title = element_text(size = 9))
 ```
 
-# Business Case: Model Evaluation Based On Business Metrics
+# Business Case: Model Evaluation
 
-The real question following the above is: How can we use any of the above to create business value? That's were the profit curves comes in. Classification models work by assigning probabilities of each class to any individual observation. For instance, one specific customer might be categorised with 75% probability of churning and 25% probability of not churning. In that case, the model would predict the customer to churn, as the probability is higher than 50%. This can be seen in \autoref{tab:OneCustomer}. The gradient boosting model predicted around 55% probability of the customer churning and around 45% of them not churning based on the available variables.
+The real question following the above is: How can we use any of the above to create business value? That's were the profit curves comes in. Classification models work by assigning probabilities of each class to any individual observation. For instance, one specific customer might be categorised with 55% probability of churning and 45% probability of not churning. In that case, the model would predict the customer to churn, as the probability is higher than 50%. This can be seen in \autoref{tab:OneCustomer}. The gradient boosting model predicted the customer to leave with a probability of around 55%.
 
 ```{r}
 gb_final_fit %>% 
@@ -583,7 +565,7 @@ gb_final_fit %>%
   kable_styling(full_width = FALSE, latex_options = c("striped"))
 ```
 
-In a business setting, a logical consequence would be to target said customer with a retention programme, for instance via selected benefits only attributed to customers at risk of churning (e.g. coupons, discounts etc.). However, it would likely not be economically viable to target all customers that have a greater than 50% chance of churning, as it would most likely be a waste of resources. If a customer has only a 50.01% chance of churning, according to the model, and assuming that the model is right, then we will be losing out on revenue from a loyal customer around half of the time. After all, there is an around 50% chance that they might not intend to leave in the first place. In that case, the discount would be wasted. As a business, we only want to give costly retention programmes to customers that are at a high risk of leaving, not to the ones who were more likely going to stay anyway. Therefore, businesses must find a threshold: Where do you set the minimum probability proposed by the model to classify a customer as *at risk of churning*? There exists an inherent trade-off between trying to prevent customers from leaving the business and losing out on revenue by giving out retention programmes to loyal and  clients. Therefore, while we, as the business, want to maximise the number of churning customers we target with retention programmes, we also want to minimise the non-churning customers we wrongly give the discounts.
+In a business setting, a logical consequence would be to target said customer with a retention programme, for instance via selected benefits only attributed to customers at risk of churning (e.g. coupons, discounts etc.). However, it would likely not be economically viable to target all customers that have a greater than 50% chance of churning, as it would most likely be a waste of resources. If a customer has only a 55% chance of churning, according to the model, and assuming that the model is right, we will be losing out on revenue from a loyal customer around a little less than half of the time. After all, there is an around 45% chance that they might not intend to leave in the first place. In that case, the discount would be wasted. As a business, we only want to give costly retention programmes to customers that are at a high risk of leaving, not to the ones who were more likely going to stay anyway. Therefore, businesses must find a threshold: Where do you set the minimum probability proposed by the model to classify a customer as *at risk of churning*? There exists an inherent trade-off between trying to prevent customers from leaving the business and losing out on revenue by giving out retention programmes to loyal and  clients. Therefore, while we, as the business, want to maximise the number of churning customers we target with retention programmes, we also want to minimise the non-churning customers we wrongly give the discounts.
 
 For the purpose of demonstration, we will make some simplifying assumptions about a business case and profit generated from each customer in that business. Let's say, a regular, non-churning customer generates USD 500 of profit for us. We are going to give out a discount of 33.3% to customers we believe will churn in the next period. It is effective, but not perfectly effective, so only 50% of those customers, who were going to leave, stay after getting the discount. The others still leave and leave us with USD $0$. Customers who leave us do not spend any money any more, so we get USD $0$ from them. In model terms this implies:
 
@@ -803,33 +785,33 @@ blended_curve %>%
                                      size = 12))
 ```
 
-```{r, results='asis'}
+```{r, results='asis', warning=FALSE, message=FALSE}
 bind_rows(
   profit_curve_models %>% 
-    mutate("Profit Delta" = profit_with_model/profit_without_model - 1) %>% 
+    mutate("Profit Delta" = profit_with_model/profit_without_model - 1,
+           "Profit Surplus" = profit_with_model - profit_without_model) %>% 
     group_by(description) %>% 
     slice_max(order_by = `Profit Delta`, n = 1) %>% 
-    select(`Profit Delta`) %>% 
     ungroup() %>% 
+    select(description, `Profit Surplus`, `Profit Delta`) %>% 
     rename(Model = description),
   blended_curve %>% 
-    mutate("Profit Delta" = profit_with_model/profit_without_model - 1) %>% 
+    mutate("Profit Delta" = profit_with_model/profit_without_model - 1,
+           `Profit Surplus` = profit_with_model - profit_without_model) %>% 
     slice_max(order_by = `Profit Delta`, n = 1) %>% 
-    select(`Profit Delta`) %>% 
+    select(`Profit Surplus`, `Profit Delta`) %>% 
     mutate(description = "Blended") %>% 
     rename(Model = description)
 ) %>% 
   arrange(-`Profit Delta`) %>% 
-  kable(align = 'lr', format = 'latex', 
-        caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}",
-        booktabs = TRUE) %>% 
+  mutate(`Profit Delta` = percent(`Profit Delta`, accuracy = 0.01),
+         `Profit Surplus` = dollar(`Profit Surplus`)) %>% 
+  kable(align = 'lrr', format = 'latex', 
+        caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}", booktabs = TRUE, linesep = "") %>% 
   kable_styling(full_width = FALSE, latex_options = c("striped"))
 ```
 
-TBD:
-- Tradeoff between very large and obscure models and just logistic regression, which works pretty much the same
-- Decide to go for logistic regression in the end: stakeholders will be happy to give up minuscule performance difference if they can understand the model and explain it to clients better
-
+At this stage, the tough decision must be made which model we recommend. Taking into consideration the marginal benefit of the more obscure and less explainable models in both absolute and relative terms as seen in \autoref{tab:ProfitTable}, we believe that the logistic regression would be a good starting point. When dealing with internal stakeholders in a company, explainability is often an important factor. We anticipate that the marginal monetary benefit of less than USD 1,000 will is not sufficient to make up for the increased difficulty to interpret and explain the model decisions to upper management and them having to justify it to potential external stakeholders. Furthermore, computational costs of retraining the tree-ensembles and especially the blended model, will likely make the projected economic difference between the models negligible going into the future. Therefore, as a final recommendation, weighing the pros and cons of performance evaluation and the business perspective, we recommend starting out with the logistic regression and potentially upgrading to more flexible methods, once relevant stakeholders have gotten used to our approach.
 
 # Ethics
 
@@ -863,7 +845,5 @@ gb_final_fit %>%
   group_by(name, value) %>% 
   count(churn, .pred_class)
 ```
-
-
 
 \vspace{1 cm}

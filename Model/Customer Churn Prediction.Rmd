@@ -641,7 +641,7 @@ registerDoParallel(cl)
 
 knn_tune <- tune_grid(object = knn_wflow,
                       resamples = folds,
-                      grid = grid_regular(neighbors(), levels = 10),
+                      grid = tibble(neighbors = c(1, seq(2, 500, 25))),
                       control = control_grid(save_pred = TRUE,
                                              save_workflow = TRUE),
                       metrics = eval_metrics)
