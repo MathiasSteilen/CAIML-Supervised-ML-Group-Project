@@ -179,12 +179,12 @@ At this stage, the strength of `Tidymodels` fully shines through: With the `reci
 
 ```
 recipe(churn ~ ., data = training(split)) %>%
-  step_rm(customer_id) %>% 
-  step_novel(all_nominal_predictors()) %>%
-  step_normalize(all_numeric_predictors()) %>% 
-  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
-  step_zv(all_predictors()) %>% 
-  step_smote(churn, skip = TRUE)
+step_rm(customer_id) %>% 
+step_novel(all_nominal_predictors()) %>%
+step_normalize(all_numeric_predictors()) %>% 
+step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
+step_zv(all_predictors()) %>% 
+step_smote(churn, skip = TRUE)
 ```
 
 Going into detail for the preprocessing steps that have been taken: As a first step, the irrelevant customer IDs are removed. Next, we are allowing for previously unseen factor levels with `step_novel()`. Normalising the predictors allows for relative variable importance calculation without the inflationary effect of higher mean numeric variables, but is generally not necessary for the tree-based learners. However, as we will also be using other methods like kNN and support vector machines, which require normalisation, having it in the general recipe is the best option and does no harm to the models that do not require it. Next, all nominal predictors are one-hot encoded. Note that the linear models, that is logistic regression and SVMs with linear kernels have issues with multicollinearity, so these are dummy-encoded, i.e. leaving out a factor level. Additionally, a zero variance variable filter is applied, which removes zero variance predictors, though there should not be any in these data, after having inspected it in the EDA section. Lastly, the target variable is upsampled using the SMOTE algorithm, as mentioned previously.
@@ -195,8 +195,8 @@ As our goal is to predict customer churn as best as possible, we not only want t
 
 ```
 specification <- model(parameters = ...) %>% 
-  set_engine("package") %>% 
-  set_mode("classification")
+set_engine("package") %>% 
+set_mode("classification")
 ```
 
 ### Gradient Boosting
@@ -656,7 +656,71 @@ profit_curve_models %>%
                                      size = 12))
 ```
 
-In similar fashion, we can go back to model training at this stage and ask whether ROC AUC was the best metric for choosing the optimal hyperparameter combination. Taking the logistic regression workflow, due to computational speed, and refitting one separate logistic regression model one of each of the six evaluation metrics, we can analyse whether ROC AUC was indeed the best choice. \autoref{MetricsChosen} confirms that ROC AUC is the metric leading to the highest expected business profit on the out-of-sample data, therefore our hypothesis from earlier is confirmed. Given the size constraint of this paper, we will not go into the details of each algorithm, nor plot the profit curves again for each model.
+In similar fashion, we can go back to model training at this stage and ask whether ROC AUC was the best metric for choosing the optimal hyperparameter combination. Taking the logistic regression workflow, due to computational speed, and refitting one separate logistic regression model one of each of the six evaluation metrics, we can analyse whether ROC AUC was indeed the best choice. \autoref{MetricsChosen} confirms that ROC AUC is the metric leading to the highest expected business profit on the out-of-sample data, therefore our hypothesis from earlier is confirmed. Given the size constraint of this paper, we will not go into the details of each algorithm, nor plot the profit curves again for each model. As a final note, all models perform better than using no model, which results in USD impact, than making random predictions, which results in around USD 65,000 negative impact on average, than always predicting the majority class, which is the same as no model and than always predicting the minority class, which results in a negative impact of around USD 138,000.
+
+```{r, include=FALSE, echo=FALSE, results="hide", message=FALSE}
+# BASELINE MODELS; no need to include charts, numbers are mentioned above
+
+# Random predictions
+dt_test %>% 
+  mutate(.pred_Yes = runif(n = nrow(.))) %>% 
+  mutate(.pred_thr = ifelse(.pred_Yes > 0.5, "Yes", "No"),
+         case = case_when(
+           .pred_thr == "Yes" & churn == "Yes" ~ "TP",
+           .pred_thr == "Yes" & churn == "No" ~ "FP",
+           .pred_thr == "No" & churn == "Yes" ~ "FN",
+           .pred_thr == "No" & churn == "No" ~ "TN"
+         )) %>% 
+  count(case) %>% 
+  pivot_wider(values_from = n, names_from = case) %>% 
+  mutate(
+    across(everything(), ~ replace(., is.na(.), 0)),
+    profit_without_model = TP*0 + FP*500 + TN*500 + FN*0,
+    profit_with_model = TP*500*0.666*0.5 + FP*500*0.666 + TN*500 + FN*0,
+    value_add = profit_with_model - profit_without_model,
+    sign = ifelse(value_add > 0, "positive", "negative")
+  )
+
+# Always predicting no
+dt_test %>% 
+  mutate(.pred_Yes = 0) %>% 
+  mutate(.pred_thr = ifelse(.pred_Yes > 0.5, "Yes", "No"),
+         case = case_when(
+           .pred_thr == "Yes" & churn == "Yes" ~ "TP",
+           .pred_thr == "Yes" & churn == "No" ~ "FP",
+           .pred_thr == "No" & churn == "Yes" ~ "FN",
+           .pred_thr == "No" & churn == "No" ~ "TN"
+         )) %>% 
+  count(case) %>% 
+  pivot_wider(values_from = n, names_from = case) %>% 
+  mutate(
+    across(everything(), ~ replace(., is.na(.), 0)),
+    profit_without_model = TN*500 + FN*0,
+    profit_with_model = TN*500 + FN*0,
+    value_add = profit_with_model - profit_without_model,
+    sign = ifelse(value_add > 0, "positive", "negative")
+  )
+
+# Always predicting yes
+dt_test %>% 
+  mutate(.pred_Yes = 1) %>% 
+  mutate(.pred_thr = ifelse(.pred_Yes > 0.5, "Yes", "No"),
+           case = case_when(
+             .pred_thr == "Yes" & churn == "Yes" ~ "TP",
+             .pred_thr == "Yes" & churn == "No" ~ "FP",
+             .pred_thr == "No" & churn == "Yes" ~ "FN",
+             .pred_thr == "No" & churn == "No" ~ "TN"
+           )) %>% 
+    count(case) %>% 
+  pivot_wider(values_from = n, names_from = case) %>% 
+    mutate(
+      across(everything(), ~ replace(., is.na(.), 0)),
+      profit_without_model = TP*0 + FP*500,
+      profit_with_model = TP*500*0.666*0.5 + FP*500*0.666,
+      value_add = profit_with_model - profit_without_model,
+      sign = ifelse(value_add > 0, "positive", "negative")
+    )
+```
 
 ```{r}
 profit_curve_metrics <- tibble(
