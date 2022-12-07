@@ -893,13 +893,6 @@ The original expectation was that senior_citizens are less digitally skilled, fi
 
 Besides bias, different prediction accuracies for varying categorical values of a single predictors might be another source of unfairness. For example, wrongly targeting a variable category as for example female might lead to higher churn in this category. The positive effect of undeserved discounts might be not be sufficient to compensate for the negative effect of customer switching cost due to unreserved but justifiable discounts. \citet[p.~1]{muthukumar2018understanding}. found that unequal gender classification accuracy from face images might not necessarily come from imbalanced dataset, but due to other very difficult to determine effects. Indeed we find that dataset distribution has no impact on accuracy levels, when comparing classification accuracy with dataset distribution. A simple solution might be to weight misclassification for different classes differently or to upsample the class with lower accuracy. However, this would increase the complexity of the model and lead to distortion. The net effect of lower accuracy does not seem to outweigh the cost of the increased complexity and distortion. Therefore, no unequal misclassification weighting or class focused upsampling has been conducted.
 
-
-
-
-
-
-
-
 ```{r}
 gb_final_fit %>% 
   extract_workflow() %>% 
@@ -913,7 +906,6 @@ gb_final_fit %>%
   geom_col() +
   facet_wrap(~ name, scales = "free_y")
 ```
-
 
 ```{r}
 test_tobias<-gb_final_fit %>% 
