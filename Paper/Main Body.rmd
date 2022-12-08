@@ -893,21 +893,7 @@ The original expectation was that senior_citizens are less digitally skilled, fi
 
 Besides bias, different prediction accuracies for varying categorical values of a single predictors might be another source of unfairness. For example, wrongly targeting a variable category as for example female might lead to higher churn in this category. The positive effect of undeserved discounts might be not be sufficient to compensate for the negative effect of customer switching cost due to unreserved but justifiable discounts. \citet[p.~1]{muthukumar2018understanding}. found that unequal gender classification accuracy from face images might not necessarily come from imbalanced dataset, but due to other very difficult to determine effects. Indeed we find that dataset distribution has no impact on accuracy levels, when comparing classification accuracy with dataset distribution. A simple solution might be to weight misclassification for different classes differently or to upsample the class with lower accuracy. However, this would increase the complexity of the model and lead to distortion. The net effect of lower accuracy does not seem to outweigh the cost of the increased complexity and distortion. Therefore, no unequal misclassification weighting or class focused upsampling has been conducted.
 
-```{r}
-gb_final_fit %>% 
-  extract_workflow() %>% 
-  augment(dt_test) %>% 
-  select(gender, senior_citizen, partner, dependents, churn, .pred_class) %>% 
-  pivot_longer(-c(churn, .pred_class)) %>% 
-  group_by(name, value) %>% 
-  accuracy(truth = churn, estimate = .pred_class) %>% 
-  ggplot(aes(.estimate,
-             value)) +
-  geom_col() +
-  facet_wrap(~ name, scales = "free_y")
-```
-
-```{r}
+```{r, warning=FALSE, message=FALSE, results='hide'}
 test_tobias<-gb_final_fit %>% 
   extract_workflow() %>% 
   augment(dt_test) %>% 
@@ -961,9 +947,6 @@ final_table_partner<-getethicstable("partner","Yes","No")
 
 final_table_senior_citizen<-getethicstable("senior_citizen","Yes","No")
 
-
-
-
 final_table_dependents
 final_table_gender
 final_table_partner
@@ -971,7 +954,14 @@ final_table_senior_citizen
 ```
 
 
+Ein BeispieL:
 
+```{r, results='asis', warning=FALSE, message=FALSE}
+final_table_dependents %>% 
+kable(align = 'llll', format = 'latex', 
+        caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}", booktabs = TRUE, linesep = "") %>% 
+  kable_styling(full_width = FALSE, latex_options = c("striped"))
+```
 
 
 
