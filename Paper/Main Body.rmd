@@ -357,7 +357,7 @@ bind_rows(
     mutate(model = "RF"),
   log_tune %>%
     collect_metrics() %>%
-    mutate(model = "LR"),
+    mutate(model = "LOG"),
   svm_lin_tune %>%
     collect_metrics() %>%
     mutate(model = "SVM_lin"),
@@ -524,7 +524,7 @@ bind_rows(
     extract_fit_parsnip() %>% 
     vi() %>% 
     select(-Sign) %>% 
-    mutate(model = "LR")
+    mutate(model = "LOG")
 ) %>% 
   group_by(model) %>% 
   slice_max(order_by = Importance, n = 15) %>% 
