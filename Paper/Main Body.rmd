@@ -34,19 +34,19 @@ theme_set(theme_bw() +
 
 # Why is it useful to predict customer churn?
 
-The fierce competition in the telecom industry leads companies to increasingly switch from having the product at the core to having the customer at the core \citep[p.~2]{zhao2021prediction}, as retaining a dissatisfied customer is about 6 to 7 times cheaper than attracting a new one \citep [p.~1]{karanovic2018telecommunication}. To effectively target the dissatisfied customers and convert them into loyal ones, a reliable prediction model is necessary. Machine learning models seem to be ideal as they continuously learn from new data and thus detect newly emerging patterns and consumer trends \citep [p.~4284] {karanovic2018telecommunication}. In a first step, several models are created to calculate the churning probability for each customer. The churn probability is the likelihood that a customer no longer buys the company’s products or services \citep[p.~553]{ahn2006customer}. In a second step, the models are evaluated and compared using traditional evaluation metrics. Lastly, the direct impact of applying the model on the company’s bottom line is demonstrated with profit curves in a simple business setting, based on which we recommend the best model, also taking into consideration practical implications like explainability.
+Fierce competition in the telecom industry led to companies increasingly switching from having the product at the core to having the customer at the core of their business model \citep[p.~2]{zhao2021prediction}, as retaining a dissatisfied customer is about 6 to 7 times cheaper than attracting a new one \citep [p.~1]{karanovic2018telecommunication}. To effectively target dissatisfied customers and retain them, a reliable prediction model is necessary. Machine learning models seem to be ideal as they continuously learn from new data and thus detect newly emerging patterns and consumer trends \citep [p.~4284] {karanovic2018telecommunication}. In the first step of our approach, several models are trained to predict the churning probability for each customer in a classification setting. The churn probability is the likelihood that a customer no longer buys the company’s products or services \citep[p.~553]{ahn2006customer}. In a second step, the models tuning and out-of-sample results are evaluated and compared using traditional evaluation metrics. Lastly, the potential impact of the models on the company’s bottom line is demonstrated with profit curves in a simple business setting, based on which we recommend the best model, also taking into consideration practical implications like explainability and ethicality.
 
 # Packages and Data
 
 ## Packages
 
-The packages used for this project include: `Tidymodels` for modelling; `Tidyverse` and `Broom` for data wrangling; `doParallel` for parallelisation of hyperparameter tuning; `vip` for variable importance plots; `stacks` for creating a linearly stacked model; `themis` for dealing with class imbalance. Smaller, less relevant packages not directly tied to model output and evaluation were not separately listed. This final paper was written in `RMarkdown` and compiled using `knitr` and `tinytex`.
+The packages used for this project include: `Tidymodels` for modelling; `Tidyverse` and `Broom` for data wrangling; `doParallel` for parallelisation of hyperparameter tuning; `vip` for variable importance plots; `stacks` for creating a linearly stacked model; `themis` for dealing with class imbalance. Smaller, less relevant packages not directly tied to model output and evaluation were not separately listed. This final paper was written in `RMarkdown` and compiled using `knitr` and `tinytex`. To work as a team, we used a repo on `GitHub` ([Link](https://github.com/MathiasSteilen/CAIML-Supervised-ML-Group-Project)) and project management with `git` integration in `RStudio`.
 
 ## Data
 
-The Telco customer churn dataset was retrieved from [Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn) and was originally posted in a data science challenge by [IBM](https://community.ibm.com/community/user/businessanalytics/blogs/steven-macko/2019/07/11/telco-customer-churn-1113) to predict customer behaviour and thus help improve the companies ability to retain them \citep{blastchar_2018}. The dataset contains information about a fictional telecommunications company that provided home phone and Internet services to 7043 customers in California in Q3 \citep{telco}. The dataset does not contain a time variable and all observations are from a fictional third quarter. Hence, seasonality is not expected to play any meaningful role and will be neglected.
+The TelCo customer churn dataset was retrieved from [Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn) and was originally posted in a data science challenge by [IBM](https://community.ibm.com/community/user/businessanalytics/blogs/steven-macko/2019/07/11/telco-customer-churn-1113) to predict customer behaviour and thus help improve the companies ability to retain them \citep{blastchar_2018}. The dataset contains information about a fictional telecommunications company that provided home phone and Internet services to 7043 customers in California in Q3 \citep{telco}. The dataset does not contain a time variable and all observations are from a fictional third quarter. Hence, seasonality is not expected to play any meaningful role and will be neglected.
 
-Before the modelling process begins, certain steps have to be taken: Firstly, most dummies are encoded as categorical predictors, so the ones that are still encoded as binary variables are made consistent upon reading of the data. Additionally, there was one unnecessary level "No internet service" in six of the categorical dummy variables, which was changed to "No", as a one hot encoding of these variables would lead to perfect collinearity with the existing variable `internet_service` and is redundant. Additionally, character columns are converted to factors, as `Tidymodels` often requires factor columns, for instance for evaluation metric computation. The last step is removing missing variables, as there is only one variable with around 0.15% missingness. Given the absolute size of data, this is negligible and does not warrant imputation, therefore it is just dropped. Importantly, none of the above steps lead to data leakage, as no metrics are computed on the aggregate data set and the shape and content of the data is not impacted by the operations.
+Before the modelling process begins, certain data preparation steps are taken: Firstly, most dummies are encoded as categorical predictors, so the ones that are still encoded as booleans are made consistent upon reading of the data. Additionally, there was one unnecessary level "No internet service" in six of the categorical dummy variables, which was changed to "No", as a one hot encoding of these variables would lead to perfect collinearity with the existing variable `internet_service` and is redundant. Additionally, character columns are converted to factors, as `Tidymodels` often requires factor columns, for instance for evaluation metric computation. The last step is removing missing variables, as there is only one variable with around 0.15% missingness. Given the absolute size of data, this is negligible and does not warrant imputation, therefore it is just dropped. Importantly, none of the above steps lead to data leakage, as no metrics are computed on the aggregate data set and the shape and content of the data is not impacted by the operations.
 
 ```{r, message=FALSE, warnings=FALSE, results='hide'}
 data <- read_csv("../Model/Telco_Churn_Data.csv") %>% 
@@ -512,7 +512,7 @@ tibble(
 
 At this stage, we could look at the variable importance of our two best models: gradient boosting and logistic regression. As the latter might suffer from collinearity and omitted variable bias though, we will not show the directional effect, but only the absolute importance of the metrics. We want to stress that we are not doing inference, hence the level of these metrics should not be important, as long as the regression model generalises well to out-of-sample data, which is all we care about. The variable importance for the gradient boosting model was calculated based on Gini impurity, which measures how well the impurity of child nodes in a decision tree is reduced by using the variable as the split variable at this given split. \autoref{VarImp} shows that both models have comparable variables in their top 5.
 
-```{r, echo=FALSE, out.width="100%", fig.height=2.5, fig.cap="\\label{VarImp}Variable importance for random forest model", fig.align='center', message=FALSE, warning=FALSE}
+```{r, echo=FALSE, out.width="100%", fig.height=2.5, fig.cap="\\label{VarImp}Variable importance for random forest model and logistic regression", fig.align='center', message=FALSE, warning=FALSE}
 bind_rows(
   gb_final_fit %>%
     extract_workflow() %>% 
@@ -705,21 +705,21 @@ dt_test %>%
 dt_test %>% 
   mutate(.pred_Yes = 1) %>% 
   mutate(.pred_thr = ifelse(.pred_Yes > 0.5, "Yes", "No"),
-           case = case_when(
-             .pred_thr == "Yes" & churn == "Yes" ~ "TP",
-             .pred_thr == "Yes" & churn == "No" ~ "FP",
-             .pred_thr == "No" & churn == "Yes" ~ "FN",
-             .pred_thr == "No" & churn == "No" ~ "TN"
-           )) %>% 
-    count(case) %>% 
+         case = case_when(
+           .pred_thr == "Yes" & churn == "Yes" ~ "TP",
+           .pred_thr == "Yes" & churn == "No" ~ "FP",
+           .pred_thr == "No" & churn == "Yes" ~ "FN",
+           .pred_thr == "No" & churn == "No" ~ "TN"
+         )) %>% 
+  count(case) %>% 
   pivot_wider(values_from = n, names_from = case) %>% 
-    mutate(
-      across(everything(), ~ replace(., is.na(.), 0)),
-      profit_without_model = TP*0 + FP*500,
-      profit_with_model = TP*500*0.666*0.5 + FP*500*0.666,
-      value_add = profit_with_model - profit_without_model,
-      sign = ifelse(value_add > 0, "positive", "negative")
-    )
+  mutate(
+    across(everything(), ~ replace(., is.na(.), 0)),
+    profit_without_model = TP*0 + FP*500,
+    profit_with_model = TP*500*0.666*0.5 + FP*500*0.666,
+    value_add = profit_with_model - profit_without_model,
+    sign = ifelse(value_add > 0, "positive", "negative")
+  )
 ```
 
 ```{r}
@@ -865,7 +865,7 @@ bind_rows(
   arrange(-`Profit Delta`) %>% 
   mutate(`Profit Delta` = percent(`Profit Delta`, accuracy = 0.01),
          `Profit Surplus` = dollar(`Profit Surplus`)) %>% 
-  kable(align = 'lrr', format = 'latex', 
+  kable(align = 'lccc', format = 'latex', 
         caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}", booktabs = TRUE, linesep = "") %>% 
   kable_styling(full_width = FALSE, latex_options = c("striped"))
 ```
@@ -873,30 +873,6 @@ bind_rows(
 At this stage, the tough decision must be made which model we recommend. Taking into consideration the marginal benefit of the more obscure and less explainable models in both absolute and relative terms as seen in \autoref{tab:ProfitTable}, we believe that the logistic regression would be a good starting point. When dealing with internal stakeholders in a company, explainability is often an important factor. We anticipate that the marginal monetary benefit of less than USD 1,000 will not be sufficient to make up for the increased difficulty to interpret and explain the model decisions to upper management and them having to justify it to potential external stakeholders. Furthermore, computational costs of retraining the tree-ensembles and especially the blended model, will likely make the projected economic difference between the models negligible going into the future. Therefore, as a final recommendation, weighing the pros and cons of performance evaluation and the business perspective, we recommend starting out with the logistic regression and potentially upgrading to more flexible methods, once relevant stakeholders have gotten used to our approach.
 
 # Ethics
-# Ethics
-
-
-
-
-
-
-
-
-
-```{r, message=FALSE, warnings=FALSE, results='hide'}
-gb_final_fit %>% 
-  extract_workflow() %>% 
-  augment(dt_test) %>% 
-  select(gender, senior_citizen, partner, dependents, churn, .pred_class) %>% 
-  pivot_longer(-c(churn, .pred_class)) %>% 
-  group_by(name, value) %>% 
-  accuracy(truth = churn, estimate = .pred_class) %>% 
-  ggplot(aes(.estimate,
-             value)) +
-  geom_col() +
-  facet_wrap(~ name, scales = "free_y")
-```
-
 
 ```{r, message=FALSE, warnings=FALSE, results='hide'}
 test_tobias<-gb_final_fit %>% 
@@ -909,38 +885,38 @@ test_tobias<-gb_final_fit %>%
 
 
 getethicstable<-function(def_topic_category,def_category1,def_category2){
-#general
-churn_category1<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category1)%>%filter(churn=="Yes")%>%summarize(total = mean(n, na.rm = TRUE)*2)%>%select(total)%>%pull()
-
-pred_category1<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category1)%>%filter(.pred_class=="Yes")%>%summarize(total = mean(n, na.rm = TRUE)*2)%>%select(total)%>%pull()
-
-total_category1<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category1)%>%summarize(total = mean(n, na.rm = TRUE)*4)%>%select(total)%>%pull()
-
-churn_category2<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category2)%>%filter(churn=="Yes")%>%summarize(total = mean(n, na.rm = TRUE)*2)%>%select(total)%>%pull()
-
-pred_category2<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category2)%>%filter(.pred_class=="Yes")%>%summarize(total = mean(n, na.rm = TRUE)*2)%>%select(total)%>%pull()
-
-total_category2<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category2)%>%summarize(total = mean(n, na.rm = TRUE)*4)%>%select(total)%>%pull()
-
-
-row_category1<-c(churn_category1,pred_category1,total_category1,label_percent()(churn_category1/total_category1),label_percent()(pred_category1/total_category1))
-
-
-row_category2<-c(churn_category2,pred_category2,total_category2,label_percent()(churn_category2/total_category2),label_percent()(pred_category2/total_category2))
-
-
-row_difference<-c(churn_category1-churn_category2,
-                  pred_category1-pred_category2,
-                  total_category1-total_category2,
-                  label_percent()(churn_category1/total_category1-churn_category2/total_category2),
-                  label_percent()(pred_category1/total_category1-pred_category2/total_category2))
-
-data<-c(row_category1,row_category2,row_difference)
-matrix<-matrix(data=data,nrow=5,ncol=3)
-colnames(matrix) <- c(def_category1, def_category2, 'Difference')
-rownames(matrix) <- c('Churn', 'Prediction','Total','Churn %', 'Prediction %')
-table <- as.table(matrix)
-return (table)
+  #general
+  churn_category1<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category1)%>%filter(churn=="Yes")%>%summarize(total = mean(n, na.rm = TRUE)*2)%>%select(total)%>%pull()
+  
+  pred_category1<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category1)%>%filter(.pred_class=="Yes")%>%summarize(total = mean(n, na.rm = TRUE)*2)%>%select(total)%>%pull()
+  
+  total_category1<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category1)%>%summarize(total = mean(n, na.rm = TRUE)*4)%>%select(total)%>%pull()
+  
+  churn_category2<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category2)%>%filter(churn=="Yes")%>%summarize(total = mean(n, na.rm = TRUE)*2)%>%select(total)%>%pull()
+  
+  pred_category2<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category2)%>%filter(.pred_class=="Yes")%>%summarize(total = mean(n, na.rm = TRUE)*2)%>%select(total)%>%pull()
+  
+  total_category2<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category2)%>%summarize(total = mean(n, na.rm = TRUE)*4)%>%select(total)%>%pull()
+  
+  
+  row_category1<-c(churn_category1,pred_category1,total_category1,label_percent()(churn_category1/total_category1),label_percent()(pred_category1/total_category1))
+  
+  
+  row_category2<-c(churn_category2,pred_category2,total_category2,label_percent()(churn_category2/total_category2),label_percent()(pred_category2/total_category2))
+  
+  
+  row_difference<-c(churn_category1-churn_category2,
+                    pred_category1-pred_category2,
+                    total_category1-total_category2,
+                    label_percent()(churn_category1/total_category1-churn_category2/total_category2),
+                    label_percent()(pred_category1/total_category1-pred_category2/total_category2))
+  
+  data<-c(row_category1,row_category2,row_difference)
+  matrix<-matrix(data=data,nrow=5,ncol=3)
+  colnames(matrix) <- c(def_category1, def_category2, 'Difference')
+  rownames(matrix) <- c('Churn', 'Prediction','Total','Churn %', 'Prediction %')
+  table <- as.table(matrix)
+  return (table)
 }
 
 final_table_dependents<-getethicstable("dependents","Yes","No")
@@ -952,22 +928,18 @@ final_table_partner<-getethicstable("partner","Yes","No")
 
 final_table_senior_citizen<-getethicstable("senior_citizen","Yes","No")
 
-
-
-
 #final_table_dependents
 #final_table_gender
 #final_table_partner
 #final_table_senior_citizen
 
-
 #as.data.frame.matrix(final_table_dependents) 
 ddddt1<-merge(as.data.frame.matrix(final_table_dependents), 
-             as.data.frame.matrix(final_table_gender),
-             by = 'row.names', all = TRUE)
+              as.data.frame.matrix(final_table_gender),
+              by = 'row.names', all = TRUE)
 ddddt2<-merge(as.data.frame.matrix(final_table_partner), 
-             as.data.frame.matrix(final_table_senior_citizen),
-             by = 'row.names', all = TRUE)
+              as.data.frame.matrix(final_table_senior_citizen),
+              by = 'row.names', all = TRUE)
 ddddt<-merge(ddddt1, 
              ddddt2,
              by = 'row.names', all = TRUE)
@@ -989,34 +961,22 @@ mydata2 = data.frame(ddddt,check.names = FALSE)%>%
 #mydata2
 ```
 
-
-
-TBD: Tobias
-
-Kommentar: Habe diesen Satz hier drunter aus der Einleitung hier hin gepackt, da wir oben glaub noch nicht über Ethics reden müssen:
-"Due to the fictional nature of the dataset, we expect that IBM was mindful of potential biases and that the number of significant biases will thus most likely be limited."
-
-TBD: Is the accuracy of the model different for any subgroups?
-TBD: Is it fair to give one subgroup discounts at higher rates?
-- Should we look at if model gives out more discounts on absolute level or on discounts per customer in group, i.e. ratios?
-
 The eight principles of ethically aligned design are well-being, data agency, effectiveness, transparency, accountability, awareness of misuse, competence and human rights \citep[p.~11]{ead1e_principles_to_practice}. As the proposed model decreases customer switching costs by offering discounts, the society’s well-being is improved. The underlying data of the model does not enable to personally identify a customer and thus data agency is not negatively impacted. The systematic modelling approach and the decision for the simple logistic regression ensures model effectiveness. Having the logistic regression as a fallback ensures random forest is only used when the sufficient skill and knowledge is present for effective operation. For the logistic regression and the random forest transparency is not given, as both interpretability and explainability is lacking. Accountability for logistic regression and random forest is impossible, as the accountability precondition transparency isn’t met. The potential impact of model misuse is limited, as the model itself is very simple, only uses a limited amount of data and most likely is thus only useful for predicting customer churn of telecom companies. However, customers trying to outsmart the model and for example adjusting payment methods and contract duration to receive discounts pose a risk to the model in operation. As a result of the logistic regressions simplicity, the operators will most likely have the skill and knowledge required for safe and effective operation. As the random forest is slightly more complex, special care will have to be given to ensure the operators have the required knowledge and skill. As a potentially unskilled operator can always fall back to the logistic regression, the random forest will most likely only be used when the operator has the sufficient skill and knowledge level. The human right the model potentially infringes upon is freedom from discrimination. Due to the fictional nature of the dataset, we expect that IBM was mindful of potential biases. As the underlying data is expected to be without any pre-existing cultural, social or institutional expectations that exhibit discriminatory patterns, the number of significant biases will most likely be limited. 
 
 From the numerous different types of fairness, a trustworthy AI system should define which definition of fairness is applicable in the system \citep[p.~25]{pekka2018european}. Distributive fairness and procedural are two major fairness types from organizational justice theory applied to machine learning \citep[p.~2]{morse2021ends}. Procedural fairness means that fairness is achieved, if the decision process is the same for all participants. Distributive fairness is reached, if the decision outcomes are fair. A procedurally fair customer churn prediction model predicts values close to the churn rates for different identity-related categorical values of the same predictor. Accordingly, the difference between prediction and actual churn rate of the categorical values man and woman should be similar. A distributively fair algorithm would have the same discount across for example different genders. Procedural fairness would still allow the company to give more discount to young people and might thus be perceived as unfair by seniors. As procedural fairness does not perpetuate institutional injustices under the assumption of a bias free fictional dataset, the fairness of the developed model will be evaluated based on procedural fairness. The evaluation is conducted by comparing the difference between actual churn rate and predicted churn rate for categorical values of a single predictor variable. The evaluated predictors include all the nominal predictors related to personal characteristics of the customers. Across all the predictors dependents, gender, partner and senior_citizen, the prediction is always higher than the churn rate. However, the difference between prediction and actual churn rate varies across categorical values for each predictor. For customers with (without) dependents the prediction is 2% (12%) higher than the actual churn rate. The prediction to churn rate percentage difference is by 5% higher for females compared to males. For customers with (without) a partner, the prediction is 4% (14%) higher than the actual churn rate. The prediction to churn rate percentage difference is by 9% higher for senior_citizen compared to non-senior_citizen.
 
-
-```{r}
-
+```{r, results='asis', warning=FALSE, message=FALSE}
 mydata2 %>%
   kable(align = 'llll', format = 'latex', 
-        caption = "Evaluation of Procedural Fairness \\label{tab:FairnessTable}", booktabs = TRUE, linesep = "") %>% 
-  kable_styling(full_width = FALSE, latex_options = c("striped"))%>%
+        caption = "Evaluation of Procedural Fairness \\label{tab:FairnessTable}", 
+        booktabs = TRUE, linesep = "") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "scale_down")) %>%
   kable_paper() %>%
   add_header_above(c(" ","Dependents" = 3, "Gender" = 3,"Partner" = 3, "Senior Citizen" = 3))
-  
 ```
 
-The original expectation was that senior_citizens are less digitally skilled, find it harder to switch and are thus less likely to churn. However, the model predicted higher churn rates for senior_citizens compared to non-senior_citizens. An explanation might be that the variable importance for all the nominal predictors related to personal characteristics is very low. Young people are still expected to churn at higher rates, but the age predictor is omitted through predictors like paperless billing and payment method. Although the initial evaluation of procedural fairness suggests an unfair model, the unfairness is unlikely to have an impact due to the low variable importance of the respective predictors. As a result of the low variable importance of nominal predictors related to personal characteristics, the model can be considered procedurally fair.
+The original expectation was that `senior_citizens` are less digitally skilled, find it harder to switch and are thus less likely to churn. However, the model predicted higher churn rates for senior_citizens compared to non-senior_citizens. An explanation might be that the variable importance for all the nominal predictors related to personal characteristics is very low. Young people are still expected to churn at higher rates, but the age predictor is omitted through predictors like paperless billing and payment method. Although the initial evaluation of procedural fairness suggests an unfair model, the unfairness is unlikely to have an impact due to the low variable importance of the respective predictors. As a result of the low variable importance of nominal predictors related to personal characteristics, the model can be considered procedurally fair.
 
 Besides bias, different prediction accuracies for varying categorical values of a single predictors might be another source of unfairness. For example, wrongly targeting a variable category as for example female might lead to higher churn in this category. The positive effect of undeserved discounts might not be sufficient to compensate for the negative effect of customer switching cost due to unreserved but justifiable discounts. \citet[p.~1]{muthukumar2018understanding}. found that unequal gender classification accuracy from face images might not necessarily come from imbalanced dataset, but due to other very difficult to determine effects. Indeed we find that dataset distribution has no impact on accuracy levels, when comparing classification accuracy with dataset distribution. A simple solution might be to weight misclassification for different classes differently or to upsample the class with lower accuracy. However, this would increase the complexity of the model and lead to distortion. The net effect of lower accuracy does not seem to outweigh the cost of the increased complexity and distortion. Therefore, no unequal misclassification weighting or class focused upsampling has been conducted.
 
@@ -1024,17 +984,22 @@ On the one hand the proposed prediction model lacks transparency and accountabil
 
 ```{r, results='asis', warning=FALSE, message=FALSE}
 final_table_dependents %>% 
-kable(align = 'llll', format = 'latex', 
-        caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}", booktabs = TRUE, linesep = "") %>% 
+  kable(align = 'llll', format = 'latex', 
+        caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}",
+        booktabs = TRUE, linesep = "") %>% 
   kable_styling(full_width = FALSE, latex_options = c("striped"))
 ```
-```{r}
-# original table
+
+```{r, results='asis', include=FALSE}
+# original table - not printed in paper
 kbl(mydata2) %>%
   kable_paper() %>%
-  add_header_above(c(" ","Dependents" = 3, "Gender" = 3,"Partner" = 3, "Senior Citizen" = 3))
-  
+  add_header_above(c(" ", "Dependents" = 3, "Gender" = 3,"Partner" = 3,
+                     "Senior Citizen" = 3))
 ```
 
+# Conclusion
+
+Which points to address?
 
 \vspace{1 cm}
