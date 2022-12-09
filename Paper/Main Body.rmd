@@ -873,27 +873,32 @@ bind_rows(
 At this stage, the tough decision must be made which model we recommend. Taking into consideration the marginal benefit of the more obscure and less explainable models in both absolute and relative terms as seen in \autoref{tab:ProfitTable}, we believe that the logistic regression would be a good starting point. When dealing with internal stakeholders in a company, explainability is often an important factor. We anticipate that the marginal monetary benefit of less than USD 1,000 will not be sufficient to make up for the increased difficulty to interpret and explain the model decisions to upper management and them having to justify it to potential external stakeholders. Furthermore, computational costs of retraining the tree-ensembles and especially the blended model, will likely make the projected economic difference between the models negligible going into the future. Therefore, as a final recommendation, weighing the pros and cons of performance evaluation and the business perspective, we recommend starting out with the logistic regression and potentially upgrading to more flexible methods, once relevant stakeholders have gotten used to our approach.
 
 # Ethics
-
-TBD: Tobias
-
-Kommentar: Habe diesen Satz hier drunter aus der Einleitung hier hin gepackt, da wir oben glaub noch nicht über Ethics reden müssen:
-"Due to the fictional nature of the dataset, we expect that IBM was mindful of potential biases and that the number of significant biases will thus most likely be limited."
-
-TBD: Is the accuracy of the model different for any subgroups?
-TBD: Is it fair to give one subgroup discounts at higher rates?
-- Should we look at if model gives out more discounts on absolute level or on discounts per customer in group, i.e. ratios?
+# Ethics
 
 
 
-The eight principles of ethically aligned design are well-being, data agency, effectiveness, transparency, accountability, awareness of misuse, competence and human rights. As the proposed model decreases customer switching costs by offering discounts, the society’s well-being is improved. The underlying data of the model does not enable to personally identify a customer and thus data agency is not negatively impacted. The systematic modelling approach and the decision for simple models like linear regression or gradient boosting ensures model effectiveness. For the logistic regression and the gradient boosting model transparency is not given, as both interpretability and explainability is lacking. Accountability for linear regression and gradient boosting is impossible, as the accountability precondition transparency isn’t met. The potential impact of model misuse is limited, as the model itself is very simple, only uses a limited amount of data and most likely is thus only useful for predicting customer churn of telecom companies. As a result of the linear regressions simplicity, the operators will most likely have the skill and knowledge required for safe and effective operation. As the gradient boosting model is slightly more complex, special care will have to be given to ensure the operators have the required knowledge and skill. As a potentially unskilled operator can always fall back to the linear regression, the gradient boosting model will most likely only be used when the operator has the sufficient skill and knowledge level. The human right the model potentially infringes upon is freedom from discrimination. The underlying data has most likely already been debiased and is thus without any pre-existing cultural, social or institutional expectations that exhibit discriminatory patterns. 
 
-From the numerous different types of fairness, a trustworthy AI system should define which definition of fairness is applicable in the systems \citep[p.~25]{pekka2018european}.Distributive fairness and procedural are two major fairness types from organizational justice theory applied to machine learning \citep[p.~2]{morse2021ends}. Procedural fairness means that fairness is achieved if the decision process is the same for all participants and distributive fairness is achieved if the decision outcomes are fair. A procedurally fair customer churn prediction model is expected to result in similar churn predictions for similar churn rates. A distributively fair algorithm would have the same discount across for example different genders. Procedural fairness would still allow the company to give more discount to young people and might thus be perceived as unfair by seniors. As procedural fairness does not perpetuate institutional injustices under the assumption of a bias free fictional dataset, the fairness of the developed model will be evaluated based on procedural fairness. The evaluation is conducted by comparing the difference between actual churn rate and predicted churn rate for categorical values of a single predictor variable. The evaluated predictors include all the nominal predictors related to personal characteristics of the customers. Across all the predictors dependents, gender, partner and senior_citizen, the prediction is always higher than the churn rate. However, the difference between prediction and actual churn rate varies across categorical values for each predictor. For customers with (without) dependents the prediction is 2% (12%) higher than the actual churn rate. The prediction to churn rate percentage difference is by 5% higher for females compared to males. For customers with (without) a partner, the prediction is 4% (14%) higher than the actual churn rate. The prediction to churn rate percentage difference is by 9% higher for senior_citizen compared to non-senior_citizen.
 
-The original expectation was that senior_citizens are less digitally skilled, find it harder to switch and are thus less likely to churn. However, the model’s predicted higher churn rates for senior_citizens compared to non-senior_citizen. An explanation might be that the variable importance for all the nominal predictors related to personal characteristics is very low. Young people still expected to churn at higher rates, but the age predictor is omitted through predictors like paperless billing and payment method. Although the initial evaluation of procedural fairness suggests an unfair model, the unfairness is unlikely to have an impact due to the low variable importance of the respective predictors. As a result of the low variable importance of nominal predictors related to personal characteristics, the model can be considered procedurally fair.
 
-Besides bias, different prediction accuracies for varying categorical values of a single predictors might be another source of unfairness. For example, wrongly targeting a variable category as for example female might lead to higher churn in this category. The positive effect of undeserved discounts might be not be sufficient to compensate for the negative effect of customer switching cost due to unreserved but justifiable discounts. \citet[p.~1]{muthukumar2018understanding}. found that unequal gender classification accuracy from face images might not necessarily come from imbalanced dataset, but due to other very difficult to determine effects. Indeed we find that dataset distribution has no impact on accuracy levels, when comparing classification accuracy with dataset distribution. A simple solution might be to weight misclassification for different classes differently or to upsample the class with lower accuracy. However, this would increase the complexity of the model and lead to distortion. The net effect of lower accuracy does not seem to outweigh the cost of the increased complexity and distortion. Therefore, no unequal misclassification weighting or class focused upsampling has been conducted.
 
-```{r, warning=FALSE, message=FALSE, results='hide'}
+
+
+```{r, message=FALSE, warnings=FALSE, results='hide'}
+gb_final_fit %>% 
+  extract_workflow() %>% 
+  augment(dt_test) %>% 
+  select(gender, senior_citizen, partner, dependents, churn, .pred_class) %>% 
+  pivot_longer(-c(churn, .pred_class)) %>% 
+  group_by(name, value) %>% 
+  accuracy(truth = churn, estimate = .pred_class) %>% 
+  ggplot(aes(.estimate,
+             value)) +
+  geom_col() +
+  facet_wrap(~ name, scales = "free_y")
+```
+
+
+```{r, message=FALSE, warnings=FALSE, results='hide'}
 test_tobias<-gb_final_fit %>% 
   extract_workflow() %>% 
   augment(dt_test) %>% 
@@ -947,14 +952,75 @@ final_table_partner<-getethicstable("partner","Yes","No")
 
 final_table_senior_citizen<-getethicstable("senior_citizen","Yes","No")
 
-final_table_dependents
-final_table_gender
-final_table_partner
-final_table_senior_citizen
+
+
+
+#final_table_dependents
+#final_table_gender
+#final_table_partner
+#final_table_senior_citizen
+
+
+#as.data.frame.matrix(final_table_dependents) 
+ddddt1<-merge(as.data.frame.matrix(final_table_dependents), 
+             as.data.frame.matrix(final_table_gender),
+             by = 'row.names', all = TRUE)
+ddddt2<-merge(as.data.frame.matrix(final_table_partner), 
+             as.data.frame.matrix(final_table_senior_citizen),
+             by = 'row.names', all = TRUE)
+ddddt<-merge(ddddt1, 
+             ddddt2,
+             by = 'row.names', all = TRUE)
+#ddddt1
+#ddddt2
+#ddddt
+#subset(ddddt, select = -c("Row.names") )
+mydata2 = data.frame(ddddt,check.names = FALSE)%>%
+  select(-1,-9)%>%
+  rename("Difference"=Difference.x.x)%>%
+  rename("Difference "=Difference.y.x)%>%
+  rename(" Difference "=Difference.x.y)%>%
+  rename(" Difference"=Difference.y.y)%>%
+  rename("Yes "=Yes.x)%>%
+  rename(" Yes"=Yes.y)%>%
+  rename("No "=No.x)%>%
+  rename(" No"=No.y)%>%
+  rename(" "=Row.names.x)
+#mydata2
 ```
 
 
-Ein BeispieL:
+
+TBD: Tobias
+
+Kommentar: Habe diesen Satz hier drunter aus der Einleitung hier hin gepackt, da wir oben glaub noch nicht über Ethics reden müssen:
+"Due to the fictional nature of the dataset, we expect that IBM was mindful of potential biases and that the number of significant biases will thus most likely be limited."
+
+TBD: Is the accuracy of the model different for any subgroups?
+TBD: Is it fair to give one subgroup discounts at higher rates?
+- Should we look at if model gives out more discounts on absolute level or on discounts per customer in group, i.e. ratios?
+
+The eight principles of ethically aligned design are well-being, data agency, effectiveness, transparency, accountability, awareness of misuse, competence and human rights \citep[p.~11]{ead1e_principles_to_practice}. As the proposed model decreases customer switching costs by offering discounts, the society’s well-being is improved. The underlying data of the model does not enable to personally identify a customer and thus data agency is not negatively impacted. The systematic modelling approach and the decision for the simple logistic regression ensures model effectiveness. Having the logistic regression as a fallback ensures random forest is only used when the sufficient skill and knowledge is present for effective operation. For the logistic regression and the random forest transparency is not given, as both interpretability and explainability is lacking. Accountability for logistic regression and random forest is impossible, as the accountability precondition transparency isn’t met. The potential impact of model misuse is limited, as the model itself is very simple, only uses a limited amount of data and most likely is thus only useful for predicting customer churn of telecom companies. However, customers trying to outsmart the model and for example adjusting payment methods and contract duration to receive discounts pose a risk to the model in operation. As a result of the logistic regressions simplicity, the operators will most likely have the skill and knowledge required for safe and effective operation. As the random forest is slightly more complex, special care will have to be given to ensure the operators have the required knowledge and skill. As a potentially unskilled operator can always fall back to the logistic regression, the random forest will most likely only be used when the operator has the sufficient skill and knowledge level. The human right the model potentially infringes upon is freedom from discrimination. Due to the fictional nature of the dataset, we expect that IBM was mindful of potential biases. As the underlying data is expected to be without any pre-existing cultural, social or institutional expectations that exhibit discriminatory patterns, the number of significant biases will most likely be limited. 
+
+From the numerous different types of fairness, a trustworthy AI system should define which definition of fairness is applicable in the system \citep[p.~25]{pekka2018european}. Distributive fairness and procedural are two major fairness types from organizational justice theory applied to machine learning \citep[p.~2]{morse2021ends}. Procedural fairness means that fairness is achieved, if the decision process is the same for all participants. Distributive fairness is reached, if the decision outcomes are fair. A procedurally fair customer churn prediction model predicts values close to the churn rates for different identity-related categorical values of the same predictor. Accordingly, the difference between prediction and actual churn rate of the categorical values man and woman should be similar. A distributively fair algorithm would have the same discount across for example different genders. Procedural fairness would still allow the company to give more discount to young people and might thus be perceived as unfair by seniors. As procedural fairness does not perpetuate institutional injustices under the assumption of a bias free fictional dataset, the fairness of the developed model will be evaluated based on procedural fairness. The evaluation is conducted by comparing the difference between actual churn rate and predicted churn rate for categorical values of a single predictor variable. The evaluated predictors include all the nominal predictors related to personal characteristics of the customers. Across all the predictors dependents, gender, partner and senior_citizen, the prediction is always higher than the churn rate. However, the difference between prediction and actual churn rate varies across categorical values for each predictor. For customers with (without) dependents the prediction is 2% (12%) higher than the actual churn rate. The prediction to churn rate percentage difference is by 5% higher for females compared to males. For customers with (without) a partner, the prediction is 4% (14%) higher than the actual churn rate. The prediction to churn rate percentage difference is by 9% higher for senior_citizen compared to non-senior_citizen.
+
+
+```{r}
+
+mydata2 %>%
+  kable(align = 'llll', format = 'latex', 
+        caption = "Evaluation of Procedural Fairness \\label{tab:FairnessTable}", booktabs = TRUE, linesep = "") %>% 
+  kable_styling(full_width = FALSE, latex_options = c("striped"))%>%
+  kable_paper() %>%
+  add_header_above(c(" ","Dependents" = 3, "Gender" = 3,"Partner" = 3, "Senior Citizen" = 3))
+  
+```
+
+The original expectation was that senior_citizens are less digitally skilled, find it harder to switch and are thus less likely to churn. However, the model predicted higher churn rates for senior_citizens compared to non-senior_citizens. An explanation might be that the variable importance for all the nominal predictors related to personal characteristics is very low. Young people are still expected to churn at higher rates, but the age predictor is omitted through predictors like paperless billing and payment method. Although the initial evaluation of procedural fairness suggests an unfair model, the unfairness is unlikely to have an impact due to the low variable importance of the respective predictors. As a result of the low variable importance of nominal predictors related to personal characteristics, the model can be considered procedurally fair.
+
+Besides bias, different prediction accuracies for varying categorical values of a single predictors might be another source of unfairness. For example, wrongly targeting a variable category as for example female might lead to higher churn in this category. The positive effect of undeserved discounts might not be sufficient to compensate for the negative effect of customer switching cost due to unreserved but justifiable discounts. \citet[p.~1]{muthukumar2018understanding}. found that unequal gender classification accuracy from face images might not necessarily come from imbalanced dataset, but due to other very difficult to determine effects. Indeed we find that dataset distribution has no impact on accuracy levels, when comparing classification accuracy with dataset distribution. A simple solution might be to weight misclassification for different classes differently or to upsample the class with lower accuracy. However, this would increase the complexity of the model and lead to distortion. The net effect of lower accuracy does not seem to outweigh the cost of the increased complexity and distortion. Therefore, no unequal misclassification weighting or class focused upsampling has been conducted.
+
+On the one hand the proposed prediction model lacks transparency and accountability. On the other hand customers maintain control over their identity, the potential for misuse is low, the model is effective and operators competence is ensured. Although predictions show bias and unequal accuracy for certain categorical values, their respective low variable importance ensures procedural fairness. Therefore, due to the models fairness, low risk profile and limited drawbacks relating to transparency and accountability, the proposed model can be considered ethically designed.
 
 ```{r, results='asis', warning=FALSE, message=FALSE}
 final_table_dependents %>% 
@@ -962,7 +1028,13 @@ kable(align = 'llll', format = 'latex',
         caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}", booktabs = TRUE, linesep = "") %>% 
   kable_styling(full_width = FALSE, latex_options = c("striped"))
 ```
-
+```{r}
+# original table
+kbl(mydata2) %>%
+  kable_paper() %>%
+  add_header_above(c(" ","Dependents" = 3, "Gender" = 3,"Partner" = 3, "Senior Citizen" = 3))
+  
+```
 
 
 \vspace{1 cm}
