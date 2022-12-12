@@ -966,7 +966,12 @@ The eight principles of ethically aligned design are well-being, data agency, ef
 From the numerous different types of fairness, a trustworthy AI system should define which definition of fairness is applicable in the system \citep[p.~25]{pekka2018european}. Distributive fairness and procedural are two major fairness types from organizational justice theory applied to machine learning \citep[p.~2]{morse2021ends}. Procedural fairness means that fairness is achieved, if the decision process is the same for all participants. Distributive fairness is reached, if the decision outcomes are fair. A procedurally fair customer churn prediction model predicts values close to the churn rates for different identity-related categorical values of the same predictor. Accordingly, the difference between prediction and actual churn rate of the categorical values man and woman should be similar. A distributively fair algorithm would have the same discount across for example different genders. Procedural fairness would still allow the company to give more discount to young people and might thus be perceived as unfair by seniors. As procedural fairness does not perpetuate institutional injustices under the assumption of a bias free fictional dataset, the fairness of the developed model will be evaluated based on procedural fairness. The evaluation is conducted by comparing the difference between actual churn rate and predicted churn rate for categorical values of a single predictor variable. The evaluated predictors include all the nominal predictors related to personal characteristics of the customers and are displayed on table \autoref{tab:FairnessTable}. Across all the predictors dependents, gender, partner and senior_citizen, the prediction is always higher than the churn rate. However, the difference between prediction and actual churn rate varies across categorical values for each predictor. For customers with (without) dependents the prediction is 2% (12%) higher than the actual churn rate. The prediction to churn rate percentage difference is by 5% higher for females compared to males. For customers with (without) a partner, the prediction is 4% (14%) higher than the actual churn rate. The prediction to churn rate percentage difference is by 9% higher for senior citizen compared to non-senior citizen.
 
 ```{r, results='asis', warning=FALSE, message=FALSE}
-mydata2 %>%
+
+mydata3 <- mydata2[,-1]
+rownames(mydata3) <- mydata2[,1]
+
+
+mydata3[c("Prediction","Churn","Total","Prediction %","Churn %"),] %>%
   kable(align = 'llll', format = 'latex', 
         caption = "Evaluation of Procedural Fairness \\label{tab:FairnessTable}", 
         booktabs = TRUE, linesep = "") %>% 
@@ -983,16 +988,16 @@ Besides bias, different prediction accuracies for varying categorical values of 
 On the one hand the proposed prediction model lacks transparency and accountability. On the other hand customers maintain control over their identity, the potential for misuse is low, the model is effective and operators competence is ensured. Although predictions show bias and unequal accuracy for certain categorical values, their respective low variable importance ensures procedural fairness. Therefore, due to the models fairness, low risk profile and limited drawbacks relating to transparency and accountability, the proposed model can be considered ethically designed.
 
 ```{r, results='asis', warning=FALSE, message=FALSE}
-final_table_dependents %>% 
-  kable(align = 'llll', format = 'latex', 
-        caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}",
-        booktabs = TRUE, linesep = "") %>% 
-  kable_styling(full_width = FALSE, latex_options = c("striped"))
+#final_table_dependents %>% 
+#  kable(align = 'llll', format = 'latex', 
+#        caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}",
+#        booktabs = TRUE, linesep = "") %>% 
+#  kable_styling(full_width = FALSE, latex_options = c("striped"))
 ```
 
 ```{r, results='asis', include=FALSE}
 # original table - not printed in paper
-kbl(mydata2) %>%
+kbl(mydata3[c("Prediction","Churn","Total","Prediction %","Churn %"),]) %>%
   kable_paper() %>%
   add_header_above(c(" ", "Dependents" = 3, "Gender" = 3,"Partner" = 3,
                      "Senior Citizen" = 3))
