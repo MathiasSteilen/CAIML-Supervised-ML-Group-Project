@@ -505,7 +505,7 @@ tibble(
   labs(title = "ROC AUC Curves Of All Models",
        colour = "Model:",
        y = "True Positive Rate",
-       x = "False Positive Rate") +
+       x = "False Positive Rate") + 
   ggsci::scale_colour_jama() +
   coord_equal()
 ```
