@@ -1,5 +1,5 @@
 ---
-title: "CAIML Group 2: Bank Customer Churn"
+title: "CAIML Group 2: Modelling RMD"
 output: 
   html_document:
     theme: simplex
@@ -11,15 +11,6 @@ output:
 editor_options: 
   chunk_output_type: console
 ---
-
-<style>
-body {
-text-align: justify}
-</style>
-
-<!-- ```{css, echo=FALSE} -->
-<!-- pre, code {white-space:pre !important; overflow-x:auto} -->
-<!-- ``` -->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
@@ -586,11 +577,7 @@ svm_nonlin_wflow <- workflow() %>%
   add_model(svm_nonlin_spec)
 ```
 
-Next up is setting up a space-filling design for time-efficient hyperparameter tuning. The latter is not required for KNN, as there is only hyperparameter to be tuned in this case.
-
-Now, the hyperparameters can be trained with parallel computing in order to utilise more available computing power.
-
-First, setting the metrics that will be calculated for model evaluation:
+Next up is setting up a space-filling design for time-efficient hyperparameter tuning. The latter is not required for KNN, as there is only hyperparameter to be tuned in this case. Now, the hyperparameters can be trained with parallel computing in order to utilise more available computing power. First, setting the metrics that will be calculated for model evaluation:
 
 ```{r}
 eval_metrics <- metric_set(roc_auc, accuracy, sensitivity, specificity,
@@ -757,6 +744,8 @@ end_time = Sys.time()
 end_time - start_time
 ```
 
+- Save the tuning results to RDS files:
+
 ```{r, eval=FALSE}
 # saveRDS(gb_tune, "gb_tune.rds")
 # saveRDS(knn_tune, "knn_tune.rds")
@@ -775,7 +764,7 @@ svm_lin_tune <- readRDS("svm_lin_tune.rds")
 svm_nonlin_tune <- readRDS("svm_nonlin_tune.rds")
 ```
 
-Better way to numerically compare the models here? For instance like the chart below
+Looking at tuning results:
 
 ```{r, fig.width=8, fig.height=4.95, dpi=300, dev="png", warning=FALSE}
 bind_rows(
@@ -845,6 +834,8 @@ svm_nonlin_final_fit <- svm_nonlin_wflow %>%
   last_fit(dt_split)
 ```
 
+Saving final models to RDS files:
+
 ```{r, eval=FALSE}
 # saveRDS(gb_final_fit, "gb_final_fit.rds")
 # saveRDS(knn_final_fit, "knn_final_fit.rds")
@@ -866,26 +857,13 @@ svm_lin_final_fit <- readRDS("svm_lin_final_fit.rds")
 svm_nonlin_final_fit <- readRDS("svm_nonlin_final_fit.rds")
 ```
 
+Variable Importance plots:
+
 ```{r, fig.width=8, fig.height=4.95, dpi=300, dev="png", warning=FALSE}
 gb_final_fit %>%
   extract_workflow() %>% 
   extract_fit_parsnip() %>% 
   vi() %>%
-  slice_max(order_by = Importance, n = 20) %>% 
-  ggplot(aes(Importance, reorder(Variable, Importance))) +
-  geom_col(fill = "midnightblue", colour = "white") +
-  labs(title = "Variable Importance",
-       subtitle = NULL,
-       y = "Predictor",
-       x = "Relative Variable Importance") +
-  theme_bw() +
-  theme(plot.title = element_text(face = "bold", size = 12),
-        plot.subtitle = element_text(face = "italic", colour = "grey50"))
-
-rf_final_fit %>%
-  extract_workflow() %>% 
-  extract_fit_parsnip() %>% 
-  vi() %>% 
   slice_max(order_by = Importance, n = 20) %>% 
   ggplot(aes(Importance, reorder(Variable, Importance))) +
   geom_col(fill = "midnightblue", colour = "white") +
@@ -917,7 +895,7 @@ log_final_fit %>%
         legend.position = "bottom")
 ```
 
-ROC Curves:
+ROC AUC Curves:
 
 ```{r}
 tibble(
@@ -1109,169 +1087,21 @@ oos_evaluation_metrics %>%
 
 ------------------------------------------------------------------------
 
-From the EDA as well as variable importance, we have learned about the most important variables to predict bank customer churn. Transaction amounts and frequency, as well as personal traits, such as relationships and age are of high importance.
-
-<br>
-
 ##### Potential use in a real life setting
 
-The real question following the above is: How can we use any of the above to create business value? That's were the gain curve comes in.
-
-Classification models work by assigning probabilities of each class to any individual observation. For instance, one specific customer might be categorised with 75% probability of churning and 25% probability of not churning. In that case, the model would predict the customer to churn, as the probability is higher than 50%. This can be seen below. The XGBoost model predicted around 70% probability of the customer churning and around 30% of them not churning based on the available variables.
+Prediction close to threshold:
 
 ```{r class.source = 'fold-show'}
 gb_final_fit %>% 
   extract_workflow() %>% 
   augment(dt_test) %>%
-  filter(.pred_Yes > 0.7) %>% 
+  filter(.pred_Yes > 0.5) %>% 
   arrange(.pred_Yes) %>% 
   head(1) %>% 
   glimpse()
 ```
 
-In a business setting, a logical consequence for a model as reliable as this one predicting a customer to churn would be to target said customer with a retention programme, for instance via selected benefits only attributed to customers at risk of churning (e.g. coupons, discounts etc.). However, it would likely not be economically viable to target all customers that have a greater than 50% chance of churning, as it would most likely be a waste of resources. If a customer has only a 50.00001% chance of churning, according to the model, and assuming that the model is right, then the customer should not deserve a discount equal to the one given to a customer with \>90% probability of leaving. After all, there is an around 50% chance that the first might not intend to leave in the first place. Then the discount would be wasted.
-
-*The business only wants to give costly retention programmes to customers that are at a high risk of leaving, not to the ones who were more likely going to stay anyway.*
-
-Therefore, businesses must find a threshold: Where do you set the minimum probability proposed by the model to classify a customer as *at risk of churning*? There exists an inherent trade-off in wanting to prevent customers from leaving the business, and not wanting to accumulate costs giving out retention programmes to many clients, who were not at high risk of leaving. As an example, the bank might decide that it targets the top 25% of customers with highest probability. This can be visualised with a gain curve, which comes with the *tidymodels* package in R:
-
-```{r class.source = 'fold-show', , dpi=300}
-gb_final_fit %>% 
-  collect_predictions() %>%
-  gain_curve(truth = churn, .pred_Yes) %>% 
-  autoplot() +
-  geom_vline(xintercept = 25, lty = "dashed", colour = "grey50")
-```
-
-The curve can be read the following way: If targeting the x customers with highest probability of leaving, how many % y do we get right of the customers who will actually leave? In the case of targeting the 25% of customers with highest modelled probability of leaving, we would get close to but not 100% of the customers with an intention of leaving right. The curve being very close to the upper edge of the grey area indicates that the underlying model works very well.
-
-The gain curve is really useful and quick to make in R, however it only says "target the 25% of customers with highest probabilities". This being dependent on the customers that predictions are being made on, I wanted to create a function that says "target only customers that have a probability *x* of leaving or higher". This can be seen here (Code for the function call on the chart can be inspected by clicking the "Code" button to the right below):
-
-```{r class.source = 'fold-show'}
-case_counts <- function(final_fit, probs){
-  
-  final_fit %>% 
-    collect_predictions() %>% 
-    mutate(
-      .pred_thr = ifelse(.pred_Yes > probs, "Yes", "No"),
-      case = case_when(
-        .pred_thr == "Yes" & churn == "Yes" ~ "TP",
-        .pred_thr == "Yes" & churn == "No" ~ "FP",
-        .pred_thr == "No" & churn == "Yes" ~ "FN",
-        .pred_thr == "No" & churn == "No" ~ "TN"
-      )) %>% 
-    count(case)  
-  
-}
-
-threshold_curve <- function(final_fit, probs){
-  
-  probs %>% 
-    as_tibble() %>% 
-    rename(threshold = value) %>%
-    mutate(counts = map(threshold, ~ case_counts(final_fit, .x))) %>%
-    unnest(counts) %>%
-    pivot_wider(values_from = n, names_from = case) %>% 
-    mutate(across(everything(), ~ replace(., is.na(.), 0)),
-           sensitivity = TP/(TP + FN),
-           specificity = TN/(TN + FP),
-           accuracy = (TP + TN)/(TP + FP + TN + FN))
-  
-}
-```
-
-```{r, dpi=300}
-threshold_curve(gb_final_fit, seq(0, 1, 0.05)) %>% 
-  ggplot(aes(threshold, sensitivity)) +
-  geom_line() +
-  geom_segment(aes(y = 1, x = 0, yend = 0, xend = 1),
-               size = 0.25, colour = "grey50", lty = "dashed") +
-  geom_ribbon(aes(ymin = 1-threshold, ymax = sensitivity), alpha = 0.1) +
-  labs(
-    title = "What % of churned customers is correctly targeted?",
-    subtitle = "Threshold: Modelled Probability > x to classify positively",
-    y = "sensitivity (true positive)"
-  ) +
-  scale_x_continuous(labels = scales::percent_format(),
-                     breaks = seq(0,1,0.1)) +
-  scale_y_continuous(labels = scales::percent_format(),
-                     breaks = seq(0,1,0.1)) +
-  theme_light() +
-  theme(plot.title = element_text(size = 14, face = "bold"),
-        plot.subtitle = element_text(face = "italic", size = 12,
-                                     colour = "grey50"))
-```
-
-Doing this for all models:
-
-```{r}
-tibble(
-  trained = list(gb_final_fit, knn_final_fit, rf_final_fit, log_final_fit,
-                 svm_lin_final_fit, svm_nonlin_final_fit),
-  description = c("GB", "KNN", "RF", "LOG", "SVM_lin", "SVM_nonlin")
-) %>% 
-  mutate(curve = map(trained, ~ threshold_curve(.x, seq(0, 1, 0.05)))) %>% 
-  unnest(curve) %>% 
-  ggplot(aes(threshold, sensitivity)) +
-  geom_line() +
-  geom_segment(aes(y = 1, x = 0, yend = 0, xend = 1),
-               size = 0.25, colour = "grey50", lty = "dashed") +
-  geom_ribbon(aes(ymin = 1-threshold, ymax = sensitivity), alpha = 0.1) +
-  facet_wrap(~ description, scales = "free_x") +
-  labs(
-    title = "What % of churned customers is correctly targeted?",
-    subtitle = "Threshold: Modelled Probability > x to classify positively",
-    y = "sensitivity (true positive)"
-  ) +
-  scale_x_continuous(labels = scales::percent_format(),
-                     breaks = seq(0,1,0.1)) +
-  scale_y_continuous(labels = scales::percent_format(),
-                     breaks = seq(0,1,0.1)) +
-  theme_light() +
-  theme(plot.title = element_text(size = 14, face = "bold"),
-        plot.subtitle = element_text(face = "italic", size = 12,
-                                     colour = "grey50"))
-```
-
-This curve now demonstrates the real trade off of setting the classification threshold better. At 50%, the default threshold for the model to classify clients above 50% as *will churn* and below 50% as *will not churn* has a higher sensitivity. However, at the same time, we are classifying more clients on an absolute level as *will churn*. Therefore, there are likely also more clients in our predicted *will churn* class, that are not actually going to leave us. Remember, we didn't want to spend additional money on them, as they are not going to leave.
-
-*Therefore, while we, as the business, want to maximise the number of churning customers we target with retention programmes, we also want to minimise the non-churning customers we wrongly give the coupons/discounts.*
-
-This can be seen below: With an increasing threshold, i.e. the "stricter" we make our model, the fewer % of actually non-churning customers we target with coupons that were designed for the customers at risk of churning.
-
-```{r, dpi=300}
-threshold_curve(gb_final_fit, seq(0, 1, 0.01)) %>% 
-  ggplot(aes(threshold, 1-specificity)) +
-  geom_line() +
-  geom_segment(aes(y = 1, x = 0, yend = 0, xend = 1),
-               size = 0.25, colour = "grey50", lty = "dashed") +
-  geom_ribbon(aes(ymin = 1-threshold, ymax = 1-specificity), alpha = 0.1) +
-  labs(
-    title = "What % of non-churning customers is wrongly targeted?",
-    subtitle = "Threshold: Modelled Probability > x to classify positively",
-    y = NULL
-  ) +
-  scale_x_continuous(labels = scales::percent_format(),
-                     breaks = seq(0,1,0.1)) +
-  scale_y_continuous(labels = scales::percent_format(),
-                     breaks = seq(0,1,0.1)) +
-  theme_light() +
-  theme(plot.title = element_text(size = 14, face = "bold"),
-        plot.subtitle = element_text(face = "italic", size = 12,
-                                     colour = "grey50"))
-```
-
-<br>
-
-##### Enough theory, how can this create value?
-
-With this curve, we can look at an actual business case: Let's make some quick and dirty assumptions about profit generated per customers.
-
--   Let's say, a regular, non-churning customer generates USD 500 of profit for us.
--   We are going to give out a discount of 33.3% to customers we believe will churn in the next period. It is effective, but not perfectly effective, so only 50% of those customers, who were going to leave, stay after getting the discount. The others still leave and leave us with USD $0$.
--   Customers who leave us do not spend any money anymore, so we get USD $0$ from them.
-
-In model terms this implies:
+Business case assumptions:
 
 -   TP = True Positive: We predicted the customer leaves, we gave out a 33.3% voucher. 50% of them stay and create profit of USD 500, the rest leaves. Our profit from this group is $N_{TP}*500*0.5*0.666$.
 -   FP = False Positive: We predicted the customers leaves, but they weren't planning on leaving. We gave them a 33.3% discount, all of them stay and our profit from this group is $N_{FP}*500*0.666$.
@@ -1348,6 +1178,8 @@ profit_curve_models %>%
                                      size = 12))
 ```
 
+Extracting maximum profit impact as well as threshold:
+
 ```{r}
 profit_curve_models %>% 
   group_by(description) %>%  
@@ -1377,7 +1209,7 @@ profit_curve_models %>%
                                      size = 12))
 ```
 
-- Checking which metric would be best for fit: ROC AUC should be best
+Checking which metric would be best for fit: ROC AUC best
 
 ```{r}
 profit_curve_metrics <- tibble(
@@ -1455,7 +1287,7 @@ profit_curve_metrics %>%
                                      size = 12))
 ```
 
-Looking at the blended model last:
+Looking at the blended model last: Have to modify the existing function:
 
 ```{r class.source = 'fold-show'}
 case_counts_fit <- function(final_fit, probs, holdout_data){
@@ -1532,7 +1364,5 @@ blended_curve %>%
   slice_max(order_by = profit_delta, n = 1) %>% 
   select(profit_delta)
 ```
-
-Gradient boosting has 0.0342, 0.1 ppts better than blended model
 
 Conclusion: No benefit in blending models, much more computationally expensive and slow. Logistic regression with regularisation and shrinkage brings the same performance, considerably faster
