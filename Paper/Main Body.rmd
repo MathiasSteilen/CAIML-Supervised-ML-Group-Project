@@ -127,7 +127,7 @@ data %>%
 
 \autoref{NumericTarget} shows the distribution of numeric predictors and the target variable in scatter plots. The float variables monthly charges and total charges have been summarised into bins and average churn rates were calculated on them. Tenure, as an integer variable, did not require this transformation. For tenure and total changes, there is a clear negative relationship with the target. The latter is likely highly correlated with tenure, as monthly subscription models lead to linear growth of total charges in time. Monthly charges does not reveal a linear relationship: In general, it looks like there is a positive relationship, but there are exceptions at 60 USD and beyond 100 USD. Potentially, for this variable, there will be a marginal benefit of allowing for more flexible methods over a logistic regression for instance.
 
-```{r, echo=FALSE, out.width="100%", fig.height=2.5, fig.cap="\\label{NumericTarget}Churn rates associated with binned numeric predictors", fig.align='center', message=FALSE, warning=FALSE}
+```{r, echo=FALSE, out.width="100%", fig.height=2.5, fig.cap="\\label{NumericTarget}Churn rates associated with binned numerical predictors", fig.align='center', message=FALSE, warning=FALSE}
 data %>% 
   select(where(is.numeric), churn) %>% 
   mutate(monthly_charges = round(monthly_charges/10)*10,
@@ -140,7 +140,7 @@ data %>%
   ggplot(aes(x = value, y = churn_rate, size = n)) +
   geom_point() +
   facet_wrap(~ variable, scales = "free", ncol = 3) +
-  labs(title = "Churn Rates For Numeric Predictors",
+  labs(title = "Churn Rates For Numerical Predictors",
        subtitle = "Monthly charges binned into 10 USD intervals. Total charges binned into 500 USD intervals.\nSize representing observation count.",
        y = "Churn Rate", x = NULL, size = "Observations:") +
   scale_x_continuous(labels = comma_format()) +
@@ -564,10 +564,10 @@ In a business setting, a logical consequence would be to target said customer wi
 
 For the purpose of demonstration, we will make some simplifying assumptions about a business case and profit generated from each customer in that business. Let us say, a regular, non-churning customer generates USD 500 of profit per period for us. We are going to give out a discount of 33.3% to customers we believe will churn in the next period. It is effective, but not perfectly effective, so only 50% of those customers, who were going to leave, stay after getting the discount. The others still leave and leave us with USD $0$. Customers who leave us do not spend any money any more, so we get USD $0$ from them. In model terms this implies:
 
-- TP = True Positive: We predicted the customer leaves, we gave out a 33.3% voucher. 50% of them stay and create profit of USD 500, the rest leaves. Our profit from this group is $N_{TP}*500*0.5*0.666$.
--   FP = False Positive: We predicted the customers leaves, but they were not planning on leaving. We gave them a 33.3% discount, all of them stay and our profit from this group is $N_{FP}*500*0.666$.
--   TN = True Negative: We predicted the customer is not going to leave, they actually did not leave. We like those customers because of their loyalty and because they give us the most money, namely $N_{TN}*500$.
--   FN = False Negatives: We predicted the customer is not going to leave, but they actually left. These are very bad, because we did not target them with a voucher: The profit from this group is $0$.
+-   TP = True Positive: We predicted that the customers would leave, and we gave out a 33.3% voucher. 50% of them stay and create profit of USD 500, and the rest leave. Our profit from this group is $N_{TP}*500*0.5*0.666$.
+-   FP = False Positive: We predicted that the customers would leave, but they were not planning on leaving. We gave them a 33.3% discount, and all of them stay and our profit from this group is $N_{FP}*500*0.666$.
+-   TN = True Negative: We predicted that the customers were not going to leave, and they actually did not leave. We like those customers because of their loyalty and because they give us the most money, namely $N_{TN}*500$.
+-   FN = False Negatives: We predicted that the customers were not going to leave, but they actually left. This situation is very bad, because we did not target them with a voucher: The profit from this group is $0$.
 
 We write a function to count our TP, FP, TN and FN and calculate the profit based on the sum of all of the four points above for each classification threshold from zero to one in 500 basis points steps. This gives us the profit curves for each model, by which we can evaluate model performance depending on the classification threshold as shown in \autoref{ProfitCurves}. It can be seen that both SVM methods are erratic or show a very narrow window of value-add compared to the baseline of using no model and that the kNN algorithm is insufficient compared to the other models. This was to be expected after seeing the ROC AUC curves in the model evaluation section earlier. In contrast, the tree-based ensembles as well as the logistic regression look much more promising, with smoother lines and wider windows of value-add over the baseline. \autoref{MaxProf} depicts the value-add in profitability of each model including the classification threshold that it is associated with. It can be seen that the classification thresholds of the tree-based models are much lower, indicating a better trade-off of these model at the default classification threshold. Gradient boosting is very close to the random logistic regression, however random forest tops them all. Had we not looked at the evaluation of the models from this business perspective, then we would have likely ruled out random forest. This goes to show the importance of optimising your models for the given task at hand.
 
