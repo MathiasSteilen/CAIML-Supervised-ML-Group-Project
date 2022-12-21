@@ -119,3 +119,8 @@ By
 
 ```{r biblio, child = 'bibliography.rmd'}
 ```
+
+\newpage
+
+```{r appendix, child = 'appendix.rmd'}
+```

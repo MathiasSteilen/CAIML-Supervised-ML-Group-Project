@@ -1,0 +1,200 @@
+---
+title: ""
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(tensorflow)
+library(tfruns)
+library(keras)
+library(themis)
+library(kableExtra)
+```
+
+\spacing{1.15}
+
+# Appendices
+
+## Appendix A: Feed Forward Neural Network
+
+As an addition, following the presentation, we wanted to explore Feed Forward Neural Networks. Given the already quite lengthy paper however, we did not want to include another full fledged paragraph that counts towards the official paper. Hence, we just outline the results very briefly below, which don't have to be counted towards our official submission. As `Tidymodels` has no integration for neural networks yet, `keras` was used. The preprocessing was done similarly to the linear models, including normalisation and cleanly separating training and testing data to prevent data leakage. Upsampling was also done with smote. Different numbers of hidden layers were manually tested, with two giving best results. The input layer, as required, has the dimensionality of the feature space, while the output layer has two nodes with a softmax activation function, as the target is a binary, mutually exclusive classification task. The two hidden layers have rectified linear unit (ReLU) activation functions. The number of nodes for both hidden layers respectively ($[2^4, 2^5, 2^6, 2^7]$), the batch size ($[20, 50, 100]$) and the learning rate ($[10^{-5}, 10^{-4}, 10^{-3}]$) were explored through brute force in hyperparameter tuning of all combinations. The validation split fraction for the inner split was 30%, and each model was trained for 100 epochs, with a callback option of early stopping and patience of 10 epochs, implying that the training process was ended once the evaluation metric (AUC) of the holdout set has stopped improving for the last 10 epochs. It has to be noted, that no k-fold cross validation was employed and the training data was just split another time for evaluation in the hyperparameter tuning process. This was an active decision, as the implementation would have taken quite a bit more time, and the neural net experiments were just considered appendix fodder. We increased the inner validation split fraction to 30%, in order to decrease the variance of the evaluation metric a little bit, in order to compensate for the lack of the stabilising effect of cross validation. From all 144 combinations, we selected the best model by AUC on the validation split. Then, we fit the model on the entire training data and make predictions on the holdout, similarly to the other models presented in the paper.
+
+```{r read data, echo=FALSE, message=FALSE, results='hide', warning=FALSE}
+# Read in full data
+data_full <- read_csv("../Model/Telco_Churn_Data.csv") %>%
+  janitor::clean_names() %>%
+  mutate(
+    senior_citizen = ifelse(senior_citizen == 1, "Yes", "No"),
+    across(c(device_protection, online_backup, online_security,
+             streaming_movies, streaming_tv, tech_support),
+           ~ ifelse(.x == "No internet service", "No", .x)),
+    across(c(multiple_lines),
+           ~ ifelse(.x == "No phone service", "No", .x)),
+    across(where(is.character), as.factor),
+    churn = fct_rev(churn)
+  ) %>%
+  drop_na()
+
+# Initial splits
+set.seed(1)
+dt_split <- data_full  %>%
+  mutate(churn = ifelse(churn == "Yes", 1, 0) %>% 
+           as.factor() %>% 
+           fct_rev()) %>%
+  initial_split(strata = "churn")
+
+dt_train <- training(dt_split)
+dt_test <- testing(dt_split)
+
+# Apply preprocessing separately
+preproc_recipe <- recipe(churn ~ ., data = dt_train) %>%
+  step_rm(customer_id) %>%
+  step_novel(all_nominal_predictors()) %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+  step_zv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_smote(churn, skip = TRUE)
+
+# Preprocess data
+dt_train_prepped <- preproc_recipe %>% prep() %>% juice()
+dt_test_prepped <- preproc_recipe %>% prep() %>% bake(new_data = dt_test)
+
+
+dt_train_x <- dt_train_prepped %>% select(-churn) %>% as.matrix
+dt_train_y <- dt_train_prepped %>% select(churn) %>% as.matrix %>% to_categorical()
+
+dt_test_x <- dt_test_prepped %>% select(-churn) %>% as.matrix
+dt_test_y <- dt_test_prepped %>% select(churn) %>% as.matrix %>%
+  to_categorical()
+
+# Load best model
+best_model <- keras::load_model_hdf5("../Model/ann_model.h5")
+
+```
+
+From the evaluation metrics presented in \autoref{tab:ANNMetrics}, it looks like the neural net has a more balanced precision and recall trade off, but pretty low specificity. Additionally, the ROC AUC was 0.82, which was not impressive compared to the other models. But as before, the true evaluation metric for our business application is profit.
+
+```{r, echo=FALSE, results='asis', warning=FALSE, message=FALSE}
+
+# Evaluation metrics
+eval_metrics <- metric_set(accuracy, sensitivity, specificity, precision,
+                           recall)
+
+best_model %>% 
+  predict(dt_test_x) %>% 
+  as_tibble() %>% 
+  bind_cols(dt_test_y) %>% 
+  transmute(.pred_Yes = V2, .pred_No = V1,
+            .pred = ifelse(V2 >= 0.5, "Yes", "No") %>% as.factor,
+            churn = ifelse(...4 == 1, "Yes", "No") %>% as.factor) %>% 
+  eval_metrics(truth = churn, estimate = .pred) %>% 
+  mutate(.estimate = percent(.estimate, accuracy = 0.01)) %>% 
+  kable(align = 'llr', format = 'latex', 
+        caption = "Evaluation metrics of the ANN \\label{tab:ANNMetrics}", booktabs = TRUE, linesep = "") %>% 
+  kable_styling(full_width = FALSE, latex_options = c("striped"))
+```
+
+For the profit curves, we had to rewrite our functions again, as the model from `keras` outputs two columns with the probability for each class in ascending order. Therefore, we did not have to specify that we wanted probability outputs, as the softmax activation already took care of that in the output layer. Applying the same logic, we can look at the profit curve of the ANN in \autoref{ANNProfitCurve}. It starts becoming profitable at very low thresholds, but does not exhibit the same peaks as the other models. \autoref{ProbsANN} shows a histogram of the probabilities that the ANN returns for the positive class: The profit curve exhibits no peak, because the model is very confident about its predictions, that is, the probabilities that are being returned are very far to the outer ends. However, this alone does not tell us an awful lot about the maximum profit yet.
+
+```{r, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+# Profit Curves and maximum profit
+case_counts_fit <- function(final_fit, probs, holdout_data, truth){
+  bind_cols(
+    final_fit %>% 
+      predict(holdout_data) %>% 
+      as_tibble() %>% 
+      rename(.pred_Yes = V2, .pred_No = V1),
+    truth %>% 
+      transmute(churn = ifelse(churn == 1, "Yes", "No") %>% as.factor)
+  ) %>% 
+    mutate(
+      .pred_thr = ifelse(.pred_Yes > probs, "Yes", "No"),
+      case = case_when(
+        .pred_thr == "Yes" & churn == "Yes" ~ "TP",
+        .pred_thr == "Yes" & churn == "No" ~ "FP",
+        .pred_thr == "No" & churn == "Yes" ~ "FN",
+        .pred_thr == "No" & churn == "No" ~ "TN"
+      )) %>% 
+    count(case)  
+}
+
+profit_curve_fit <- function(final_fit, probs, holdout_data, truth){
+  probs %>% 
+    as_tibble() %>%
+    rename(threshold = value) %>%
+    mutate(counts = map(threshold, ~ case_counts_fit(final_fit, .x,
+                                                     holdout_data, truth))) %>%
+    unnest(counts) %>%
+    pivot_wider(values_from = n, names_from = case) %>% 
+    mutate(
+      across(everything(), ~ replace(., is.na(.), 0)),
+      profit_without_model = TP*0 + FP*500 + TN*500 + FN*0,
+      profit_with_model = TP*500*0.666*0.5 + FP*500*0.666 + TN*500 + FN*0,
+      value_add = profit_with_model - profit_without_model,
+      sign = ifelse(value_add > 0, "positive", "negative")
+    )
+}
+
+ann_profits <- profit_curve_fit(final_fit = best_model,
+                                probs = seq(0, 1, 0.05),
+                                holdout_data = dt_test_x,
+                                truth = dt_test)
+
+```
+
+```{r, echo=FALSE, cache=TRUE, warning=FALSE, message=FALSE, out.width="100%", fig.height=3, fig.cap="\\label{ANNProfitCurve}Profit curve of the artifical neural network"}
+ann_profits %>% 
+  ggplot(aes(threshold, profit_with_model)) +
+  geom_line(colour = "grey50", size = 0.4) + 
+  geom_point(aes(colour = sign, group = 1)) +
+  labs(colour = "Value-add of the \nmodel compared \nto using no model:",
+       y = "Profit",
+       x = "Classification Threshold", 
+       title = "Forecasted Profit Depending On Classification Threshold",
+       subtitle = "Artifical Neural Network") +
+  scale_y_continuous(labels = dollar_format()) +
+  scale_x_continuous(labels = percent_format(), 
+                     breaks = seq(0, 1, 0.1)) +
+  scale_colour_manual(values = c("firebrick", "dodgerblue")) +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(face = "italic", colour = "grey50",
+                                     size = 12))
+```
+
+```{r, echo=FALSE, cache=TRUE, warning=FALSE, message=FALSE, out.width="100%", fig.height=2, fig.cap="\\label{ProbsANN}Probabilities by the ANN for the positive class of customers actually churning"}
+best_model %>% 
+  predict(dt_test_x) %>% 
+  as_tibble() %>% 
+  transmute(.pred_Yes = V2) %>%
+  ggplot(aes(x = .pred_Yes, y = ..density..)) +
+  geom_histogram(binwidth = 0.05) +
+  labs(title = "Probabilities for Positive Class given by ANN") +
+  scale_x_continuous(labels = percent_format()) +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(face = "italic", colour = "grey50",
+                                     size = 12))
+```
+
+\autoref{tab:ANNMetrics} shows the maximum profit delta compared to the no model baseline and the value add in dollar terms. It appears that the ANN performed even worse than kNN, but better than the baseline. Given the high complexity of neural networks and the low explainability, as well as the costs of retraining and maintaining, we came to the clear conclusion, that the neural network is not a step up from the existing models. As often on small and medium sized data, the neural network did not perform better than simpler and more convenient alternatives.
+
+```{r, echo=FALSE, results='asis', warning=FALSE, message=FALSE}
+# Extracting maximum profit
+ann_profits %>% 
+  slice_max(profit_with_model, n = 1) %>% 
+  transmute(threshold,
+            profit_delta = profit_with_model/profit_without_model - 1,
+            value_add) %>% 
+  mutate(threshold = percent(threshold, accuracy = 1),
+         profit_delta = percent(profit_delta, accuracy = 0.01),
+         value_add = dollar(value_add, accuracy = 1)) %>%  
+  kable(align = 'rrr', format = 'latex', 
+        caption = "Maximum profit impact of the artifical neural network \\label{tab:ANNImpact}", booktabs = TRUE, linesep = "") %>% 
+  kable_styling(full_width = FALSE, latex_options = c("striped"))
+```
+
