@@ -505,7 +505,7 @@ tibble(
   labs(title = "ROC AUC Curves Of All Models",
        colour = "Model:",
        y = "True Positive Rate",
-       x = "False Positive Rate") + 
+       x = "False Positive Rate") +
   ggsci::scale_colour_jama() +
   coord_equal()
 ```
@@ -656,7 +656,7 @@ profit_curve_models %>%
                                      size = 12))
 ```
 
-In similar fashion, we can go back to model training at this stage and ask whether ROC AUC was the best metric for choosing the optimal hyperparameter combination. Taking the logistic regression workflow, due to computational speed, and refitting one separate logistic regression model one of each of the six evaluation metrics, we can analyse whether ROC AUC was indeed the best choice. \autoref{MetricsChosen} confirms that ROC AUC is the metric leading to the highest expected business profit on the out-of-sample data, therefore our hypothesis from earlier is confirmed. Given the size constraint of this paper, we will not go into the details of each algorithm, nor plot the profit curves again for each model. As a final note: all models perform better than using no model, which results in 0 USD impact - this is our baseline. Making random predictions results in USD 65,000 negative impact on average. Always predicting the majority class, which is "not churning", is equivalent to no model. Always predicting the minority class, which is "churning", results in a negative impact of around USD 138,000. Across the board, all of our models perform both better than the baseline of using no model, better than random predictions and better than always predicting the majority class.
+In similar fashion, we can go back to model training at this stage and ask whether ROC AUC was the best metric for choosing the optimal hyperparameter combination. Taking the logistic regression workflow, due to computational speed, and refitting one separate logistic regression model one of each of the six evaluation metrics, we can analyse whether ROC AUC was indeed the best choice. \autoref{MetricsChosen} confirms that ROC AUC is the metric leading to the highest expected business profit on the out-of-sample data, therefore our hypothesis from earlier is confirmed. Given the size constraint of this paper, we will not go into the details of each algorithm, nor plot the profit curves again for each model. As a final note, all models perform better than using no model, which results in USD impact, than making random predictions, which results in around USD 65,000 negative impact on average, than always predicting the majority class, which is the same as no model and than always predicting the minority class, which results in a negative impact of around USD 138,000.
 
 ```{r, include=FALSE, echo=FALSE, results="hide", message=FALSE}
 # BASELINE MODELS; no need to include charts, numbers are mentioned above
@@ -899,25 +899,22 @@ getethicstable<-function(def_topic_category,def_category1,def_category2){
   total_category2<-test_tobias%>%filter(name==def_topic_category)%>%filter(value==def_category2)%>%summarize(total = mean(n, na.rm = TRUE)*4)%>%select(total)%>%pull()
   
   
-  
-  #important prediction - churn                                 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  row_category1<-c(churn_category1,pred_category1,total_category1,label_percent()(churn_category1/total_category1),label_percent()(pred_category1/total_category1),label_percent()(pred_category1/total_category1-churn_category1/total_category1))
+  row_category1<-c(churn_category1,pred_category1,total_category1,label_percent()(churn_category1/total_category1),label_percent()(pred_category1/total_category1))
   
   
-  row_category2<-c(churn_category2,pred_category2,total_category2,label_percent()(churn_category2/total_category2),label_percent()(pred_category2/total_category2),label_percent()(pred_category2/total_category2-churn_category2/total_category2))
+  row_category2<-c(churn_category2,pred_category2,total_category2,label_percent()(churn_category2/total_category2),label_percent()(pred_category2/total_category2))
   
   
   row_difference<-c(churn_category1-churn_category2,
                     pred_category1-pred_category2,
                     total_category1-total_category2,
                     label_percent()(churn_category1/total_category1-churn_category2/total_category2),
-                    label_percent()(pred_category1/total_category1-pred_category2/total_category2),
-                    label_percent()((pred_category1/total_category1-pred_category2/total_category2)-(churn_category1/total_category1-churn_category2/total_category2)))
+                    label_percent()(pred_category1/total_category1-pred_category2/total_category2))
   
   data<-c(row_category1,row_category2,row_difference)
-  matrix<-matrix(data=data,nrow=6,ncol=3)
+  matrix<-matrix(data=data,nrow=5,ncol=3)
   colnames(matrix) <- c(def_category1, def_category2, 'Difference')
-  rownames(matrix) <- c('Churn', 'Prediction','Total','Churn %', 'Prediction %',"%'s Difference")
+  rownames(matrix) <- c('Churn', 'Prediction','Total','Churn %', 'Prediction %')
   table <- as.table(matrix)
   return (table)
 }
@@ -961,7 +958,7 @@ mydata2 = data.frame(ddddt,check.names = FALSE)%>%
   rename("No "=No.x)%>%
   rename(" No"=No.y)%>%
   rename(" "=Row.names.x)
-mydata2
+#mydata2
 ```
 
 The eight principles of ethically aligned design are well-being, data agency, effectiveness, transparency, accountability, awareness of misuse, competence and human rights \citep[p.~11]{ead1e_principles_to_practice}. As the proposed model decreases customer switching costs by offering discounts, the society’s well-being is improved. The underlying data of the model does not enable to personally identify a customer and thus data agency is not negatively impacted. The systematic modelling approach and the decision for the simple logistic regression ensures model effectiveness. Having the logistic regression as a fall-back ensures random forest is only used when the sufficient skill and knowledge is present for effective operation. For the logistic regression and the random forest transparency is not given, as interpretability is lacking. Accountability for logistic regression and random forest is impossible, as the accountability precondition transparency isn’t met. The potential impact of model misuse is limited, as the model itself is very simple, only uses a limited amount of data and most likely is thus only useful for predicting customer churn of telecom companies. However, customers trying to outsmart the model and for example adjusting payment methods and contract duration to receive discounts pose a risk to the model in operation. As a result of the logistic regressions simplicity, the operators will most likely have the skill and knowledge required for safe and effective operation. As the random forest is slightly more complex, special care will have to be given to ensure the operators have the required knowledge and skill. As a potentially unskilled operator can always fall back to the logistic regression, the random forest will most likely only be used when the operator has the sufficient skill and knowledge level. The human right the model potentially infringes upon is freedom from discrimination. Due to the fictional nature of the dataset, we expect that IBM was mindful of potential biases. As the underlying data is expected to be without any pre-existing cultural, social or institutional expectations that exhibit discriminatory patterns, the number of significant biases will most likely be limited. 
@@ -969,12 +966,7 @@ The eight principles of ethically aligned design are well-being, data agency, ef
 From the numerous different types of fairness, a trustworthy AI system should define which definition of fairness is applicable in the system \citep[p.~25]{pekka2018european}. Distributive fairness and procedural are two major fairness types from organizational justice theory applied to machine learning \citep[p.~2]{morse2021ends}. Procedural fairness means that fairness is achieved, if the decision process is the same for all participants. Distributive fairness is reached, if the decision outcomes are fair. A procedurally fair customer churn prediction model predicts values close to the churn rates for different identity-related categorical values of the same predictor. Accordingly, the difference between prediction and actual churn rate of the categorical values man and woman should be similar. A distributively fair algorithm would have the same discount across for example different genders. Procedural fairness would still allow the company to give more discount to young people and might thus be perceived as unfair by seniors. As procedural fairness does not perpetuate institutional injustices under the assumption of a bias free fictional dataset, the fairness of the developed model will be evaluated based on procedural fairness. The evaluation is conducted by comparing the difference between actual churn rate and predicted churn rate for categorical values of a single predictor variable. The evaluated predictors include all the nominal predictors related to personal characteristics of the customers and are displayed on table \autoref{tab:FairnessTable}. Across all the predictors dependents, gender, partner and senior_citizen, the prediction is always higher than the churn rate. However, the difference between prediction and actual churn rate varies across categorical values for each predictor. For customers with (without) dependents the prediction is 2% (12%) higher than the actual churn rate. The prediction to churn rate percentage difference is by 5% higher for females compared to males. For customers with (without) a partner, the prediction is 4% (14%) higher than the actual churn rate. The prediction to churn rate percentage difference is by 9% higher for senior citizen compared to non-senior citizen.
 
 ```{r, results='asis', warning=FALSE, message=FALSE}
-
-mydata3 <- mydata2[,-1]
-rownames(mydata3) <- mydata2[,1]
-
-
-mydata3[c("Prediction","Churn","Total","Prediction %","Churn %","%'s Difference"),] %>%
+mydata2 %>%
   kable(align = 'llll', format = 'latex', 
         caption = "Evaluation of Procedural Fairness \\label{tab:FairnessTable}", 
         booktabs = TRUE, linesep = "") %>% 
@@ -991,16 +983,16 @@ Besides bias, different prediction accuracies for varying categorical values of 
 On the one hand the proposed prediction model lacks transparency and accountability. On the other hand customers maintain control over their identity, the potential for misuse is low, the model is effective and operators competence is ensured. Although predictions show bias and unequal accuracy for certain categorical values, their respective low variable importance ensures procedural fairness. Therefore, due to the models fairness, low risk profile and limited drawbacks relating to transparency and accountability, the proposed model can be considered ethically designed.
 
 ```{r, results='asis', warning=FALSE, message=FALSE}
-#final_table_dependents %>% 
-#  kable(align = 'llll', format = 'latex', 
-#        caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}",
-#        booktabs = TRUE, linesep = "") %>% 
-#  kable_styling(full_width = FALSE, latex_options = c("striped"))
+final_table_dependents %>% 
+  kable(align = 'llll', format = 'latex', 
+        caption = "Maximum impact on forecasted profit for each model \\label{tab:ProfitTable}",
+        booktabs = TRUE, linesep = "") %>% 
+  kable_styling(full_width = FALSE, latex_options = c("striped"))
 ```
 
 ```{r, results='asis', include=FALSE}
 # original table - not printed in paper
-kbl(mydata3[c("Prediction","Churn","Total","Prediction %","Churn %","%'s Difference"),]) %>%
+kbl(mydata2) %>%
   kable_paper() %>%
   add_header_above(c(" ", "Dependents" = 3, "Gender" = 3,"Partner" = 3,
                      "Senior Citizen" = 3))
