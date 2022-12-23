@@ -76,7 +76,7 @@ best_model <- keras::load_model_hdf5("../Model/ann_model.h5")
 
 ```
 
-From the evaluation metrics presented in \autoref{tab:ANNMetrics}, it looks like the neural net has a more balanced precision and recall trade off, but pretty low specificity. Additionally, the ROC AUC was 0.82, which was not impressive compared to the other models. But as before, the true evaluation metric for our business application is profit.
+From the evaluation metrics presented in \autoref{tab:ANNMetrics}, it looks like the neural net has a more balanced precision and recall trade off, but pretty low specificity. Additionally, the ROC AUC was 0.82, which was not impressive compared to the other models, as seen in \autoref{OOSperformance}. But as before, the true evaluation metric for our business application is profit.
 
 ```{r, echo=FALSE, results='asis', warning=FALSE, message=FALSE}
 
